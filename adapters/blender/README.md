@@ -1,6 +1,6 @@
-# Blender offline producer contract
+# Blender offline producer and adapter contract
 
-V0.1 provides an integration contract rather than a live bridge. The original JSON fixture producer demonstrates the protocol without requiring Blender. A real offline exporter is a follow-up adapter task.
+V0.2 provides the first real offline producer and adapter. Blender remains authoritative, proxy GLBs remain derived, intents remain request-only, and execution results acknowledge an offline adapter run. There is still no live bridge, watcher or WebSocket.
 
 1. Persist design_id, source_resource_id and per-entity global_id in the authoritative project. Preserve them across renames and exports; keep native locators separate.
 2. Save the authoritative source, hash saved bytes with SHA-256, and obtain the revision token from the source/task revision system.
@@ -10,4 +10,4 @@ V0.1 provides an integration contract rather than a live bridge. The original JS
 6. Write one active GLB scene and a V1 manifest with scope full/task, correct entity_count and source provenance in task-output/artifacts. Include preview/task report when useful.
 7. Validate portable schemas and the semantic checks in docs/protocol-v0.1.md before handing files to the workspace.
 
-Future consumers validate request_only, current source revision/hash and stable/native ID pairs, apply source policy, convert translation into source coordinates, and deduplicate request IDs. Only the adapter acts on Blender. The web UI has no .blend editing handles and does not transform/write GLBs.
+export_proxy.py, apply_intent.py, common.py and create_fixture.py implement the contract. Use [the workflow](../../docs/blender-workflow-v0.2.md) for exact headless commands. apply_intent.py validates request-only, current source revision/hash and stable/native ID pairs, applies mutability policy, converts proxy [x,y,z] meters to Blender [x,-z,y] scene units using source_unit_scale, bumps revision, saves via atomic replacement, and emits spatial-canvas.execution-result.v1. Only this adapter acts on Blender. The web UI has no .blend editing handles and does not transform/write GLBs.

@@ -6,6 +6,7 @@ const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const timestamp = z.iso.datetime();
 const vec3 = z.tuple([z.number(), z.number(), z.number()]);
 const uniqueIds = z.array(id).refine((ids) => new Set(ids).size === ids.length, 'Duplicate entity IDs');
+const errorSchema = z.object({ code: id, message: id, details: z.record(z.string(), z.unknown()).optional() });
 export const frameSchema = z.object({
   coordinate_frame: id, unit: z.enum(['meter', 'millimeter', 'centimeter']), up_axis: z.enum(['X', 'Y', 'Z']),
 });
@@ -45,9 +46,27 @@ export const intentSchema = z.object({
   payload: z.object({ translation: vec3, space: z.literal('world'), coordinate_frame: id, unit: z.literal('meter') }),
   timestamp, extensions: z.record(z.string(), z.unknown()).optional(),
 });
+export const executionResultSchema = z.discriminatedUnion('status', [
+  z.object({
+    schema: z.literal('spatial-canvas.execution-result.v1'), request_id: id, design_id: id, source_resource_id: id,
+    previous_source_revision: revision, source_revision: revision, status: z.literal('applied'),
+    targets: uniqueIds.min(1), timestamp,
+  }).strict().refine((result) => result.previous_source_revision !== result.source_revision, 'Revision must change'),
+  z.object({
+    schema: z.literal('spatial-canvas.execution-result.v1'), request_id: id.nullable(), design_id: id.nullable(), source_resource_id: id.nullable(),
+    previous_source_revision: revision.nullable(), source_revision: revision.nullable(), status: z.literal('rejected'),
+    targets: uniqueIds, timestamp, error: errorSchema,
+  }).strict().refine((result) => result.previous_source_revision === result.source_revision, 'Rejected request cannot change revision'),
+  z.object({
+    schema: z.literal('spatial-canvas.execution-result.v1'), request_id: id.nullable(), design_id: id.nullable(), source_resource_id: id.nullable(),
+    previous_source_revision: revision.nullable(), source_revision: revision.nullable(), status: z.literal('error'),
+    targets: uniqueIds, timestamp, error: errorSchema,
+  }).strict(),
+]);
 
 export type Manifest = z.infer<typeof manifestSchema>;
 export type Entity = z.infer<typeof entitySchema>;
 export type SelectionEvent = z.infer<typeof selectionSchema>;
 export type Intent = z.infer<typeof intentSchema>;
 export type ProtocolEvent = SelectionEvent | Intent;
+export type ExecutionResult = z.infer<typeof executionResultSchema>;

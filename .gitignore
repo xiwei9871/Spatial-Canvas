@@ -12,5 +12,14 @@ artifacts/
 !examples/living/task-output/**
 !examples/living/task-output/artifacts/*.glb
 !examples/living/task-output/artifacts/
+examples/blender-v02/*.blend
+examples/blender-v02/*.blend1
+examples/blender-v02/*.json
+examples/blender-v02/artifacts/
+!examples/blender-v02/README.md
 test-results/
 playwright-report/
+__pycache__/
+*.pyc
+*.spatial-canvas.lock
+.sc-save-*.blend

@@ -22,3 +22,9 @@ export const intent = {
   payload: { translation: [0.2, 0, 0], space: 'world', coordinate_frame: 'demo_world', unit: 'meter' },
   timestamp: '2026-10-04T04:00:00.000Z',
 };
+export const executionResult = {
+  schema: 'spatial-canvas.execution-result.v1', request_id: 'req_demo',
+  design_id: 'design_demo', source_resource_id: 'src_demo',
+  previous_source_revision: 'r1', source_revision: 'r2', status: 'applied',
+  targets: ['ent_sofa'], timestamp: '2026-10-04T04:00:00.000Z',
+};
