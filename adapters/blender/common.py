@@ -10,6 +10,7 @@ import uuid
 import bpy
 from mathutils import Vector
 from contracts import ProtocolError, identifier, unit_scale, proxy_to_source, source_to_proxy
+from bindings import AUTHORITY_LEVELS
 
 METADATA_KEYS = {key: "spatial_canvas_" + key for key in [
     "design_id", "source_resource_id", "source_revision", "coordinate_frame", "source_unit_scale"]}
@@ -84,6 +85,7 @@ def entity_from_object(obj, metadata):
     entity.update({name: values[name] for name in ["global_id", "semantic_type", "room_id"]})
     entity["native_object_id"] = obj.name
     if values["authority_level"] is not None:
+        if values["authority_level"] not in AUTHORITY_LEVELS:raise ProtocolError("Unknown authority_level")
         entity["authority_level"] = identifier(values["authority_level"], "authority_level")
     if values["mutable"] is not None:
         if not isinstance(values["mutable"], bool):
@@ -123,7 +125,7 @@ def initialize_ids(scene=None, *, design_id=None, source_resource_id=None, sourc
         if obj.get(ENTITY_KEYS["global_id"]) is None:
             obj[ENTITY_KEYS["global_id"]] = "ent_" + uuid.uuid4().hex
             changed.append(obj.name)
-        for field, value in {"semantic_type": "object", "room_id": "unassigned", "authority_level": "DESIGN_GUIDE"}.items():
+        for field, value in {"semantic_type": "object", "room_id": "unassigned", "authority_level": "HUMAN_DESIGN_GUIDE"}.items():
             if obj.get(ENTITY_KEYS[field]) is None:
                 obj[ENTITY_KEYS[field]] = value
     if changed and previous:

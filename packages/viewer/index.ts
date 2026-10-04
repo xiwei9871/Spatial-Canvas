@@ -1,8 +1,9 @@
-import { AmbientLight, Box3, Box3Helper, Color, DirectionalLight, GridHelper, Group, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
+import { AmbientLight, Box3, Box3Helper, Color, DirectionalLight, GridHelper, Group, Matrix3, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { preflightGlb } from '../protocol/glb';
 import type { Manifest } from '../protocol/index';
+import type { CameraView, ContextHit } from '../protocol/context';
 import { disposeScene, indexScene } from './scene';
 
 export async function loadProxy(buffer: ArrayBuffer, manifest: Manifest) {
@@ -24,7 +25,7 @@ export class ProxyViewer {
   private down?: { x: number; y: number };
   private readonly resize: ResizeObserver;
 
-  constructor(host: HTMLElement, onSelect: (id: string | null, additive: boolean) => void) {
+  constructor(host: HTMLElement, onSelect: (id: string | null, additive: boolean, hit:ContextHit|null) => void) {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.scene.background = new Color('#e9eeed');
     this.renderer.domElement.setAttribute('aria-label', '3D interaction proxy');
@@ -56,14 +57,31 @@ export class ProxyViewer {
       const pointer = new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
       this.raycaster.setFromCamera(pointer, this.camera);
       const hit = this.raycaster.intersectObjects([...this.current.meshEntities.keys()], false)[0];
-      onSelect(hit ? this.current.meshEntities.get(hit.object as Mesh)?.global_id ?? null : null, event.shiftKey || event.ctrlKey || event.metaKey);
+      const id=hit ? this.current.meshEntities.get(hit.object as Mesh)?.global_id ?? null : null;
+      const point=hit&&id?{entity_id:id,xyz:hit.point.toArray() as [number,number,number],
+        frame_id:this.coordinateFrame,unit:'meter' as const,
+        ...(hit.face?{normal:hit.face.normal.clone().applyMatrix3(new Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize().toArray() as [number,number,number]}:{})}:null;
+      onSelect(id,event.shiftKey||event.ctrlKey||event.metaKey,point);
     });
   }
+  private coordinateFrame='proxy_world';
 
-  setProxy(proxy: LoadedProxy) {
+  viewSnapshot(frameId:string):CameraView {
+    return {
+      projection:'perspective',fov_degrees:this.camera.fov,near:this.camera.near,far:this.camera.far,
+      position:this.camera.position.toArray(),quaternion:this.camera.quaternion.toArray(),
+      projection_matrix:this.camera.projectionMatrix.toArray(),orbit_target:this.controls.target.toArray(),
+      viewport:{width:this.renderer.domElement.clientWidth,height:this.renderer.domElement.clientHeight,
+        pixel_ratio:this.renderer.getPixelRatio()},
+      frame_id:frameId,unit:'meter',up_axis:'Y',
+    };
+  }
+
+  setProxy(proxy: LoadedProxy, frameId='proxy_world') {
     this.clearHighlights();
     if (this.current) { this.scene.remove(this.current.root); disposeScene(this.current.root); }
     this.current = proxy;
+    this.coordinateFrame=frameId;
     this.scene.add(proxy.root);
     this.frame([]);
   }

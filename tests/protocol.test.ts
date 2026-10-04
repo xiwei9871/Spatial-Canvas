@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { entitySchema, executionResultSchema, intentSchema, manifestSchema, resourceSchema, selectionSchema } from '../packages/protocol/index';
+import { authorityLevelSchema, entitySchema, executionResultSchema, intentSchema, manifestSchema, resourceSchema, selectionSchema } from '../packages/protocol/index';
 
 import { entity, executionResult, intent, manifest, selection } from './data';
 
 describe('protocol contracts', () => {
+  it('accepts only the agreed authority vocabulary',()=>{
+    for(const value of ['PHYSICAL_GROUND_TRUTH','SEMANTIC_GROUND_TRUTH','HUMAN_DESIGN_GUIDE','DERIVED_DESIGN_MODEL','PRESENTATION'])
+      expect(authorityLevelSchema.safeParse(value).success).toBe(true);
+    expect(authorityLevelSchema.safeParse('DESIGN_GUIDE').success).toBe(false);
+    expect(entitySchema.safeParse({...entity,authority_level:'INVENTED'}).success).toBe(false);
+  });
   it('accepts one contract for full and task proxies', () => {
     expect(manifestSchema.safeParse(manifest).success).toBe(true);
     expect(manifestSchema.safeParse({ ...manifest, scope: 'task' }).success).toBe(true);

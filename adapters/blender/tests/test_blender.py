@@ -15,6 +15,7 @@ import common
 from contracts import ProtocolError
 from export_proxy import export_proxy
 import export_proxy as producer
+import apply_intent as adapter_module
 from apply_intent import apply_intent, execute_saved_intent
 from types import SimpleNamespace
 
@@ -60,6 +61,9 @@ class BlenderGates(unittest.TestCase):
         common.initialize_ids()
         self.assertEqual(common.scene_metadata()["source_revision"], "rev-00007")
         self.assertEqual(bpy.data.objects["Sofa"]["spatial_canvas_global_id"], "sofa")
+        del bpy.data.objects["Sofa"]["spatial_canvas_authority_level"]
+        common.initialize_ids()
+        self.assertEqual(bpy.data.objects["Sofa"]["spatial_canvas_authority_level"],"HUMAN_DESIGN_GUIDE")
 
     def test_rename_preserves_global_id_and_updates_native_locator(self):
         bpy.data.objects["Sofa"].name = "Renamed_Sofa"
@@ -212,10 +216,75 @@ class BlenderGates(unittest.TestCase):
         sofa.data.vertices[0].co.x = 99
         self.saved()
         sofa.data.vertices[0].co.x = old
-        with patch.object(sys, "argv", ["export_proxy.py", "--", "--initialize-ids", "--output", self.args().output]):
+        with patch.object(sys, "argv", ["export_proxy.py", "--", "--initialize-ids", "--editable-source", "--output", self.args().output]):
             producer.main()
         bpy.ops.wm.open_mainfile(filepath=self.source)
         self.assertEqual(bpy.data.objects["Sofa"].data.vertices[0].co.x, 99)
+
+    def test_frozen_sidecar_export_never_writes_source_or_uses_embedded_ids(self):
+        # Frozen source has no Spatial Canvas metadata.
+        for key in common.METADATA_KEYS.values():del bpy.context.scene[key]
+        for obj in common.eligible_objects():
+            for key in common.ENTITY_KEYS.values():
+                if key in obj:del obj[key]
+        sha=self.saved()
+        mtime=Path(self.source).stat().st_mtime_ns
+        sidecar=Path(self.work.name)/"spatial-canvas.bindings.json"
+        value={"schema":"spatial-canvas.bindings.v1","registry_id":"bindings_test","registry_revision":"1",
+               "design_id":"frozen_design","source_resource_id":"frozen_source","source_revision":"r4",
+               "source_sha256":sha,"source_locator":self.source,"source_authority":"frozen",
+               "source_frame":{"frame_id":"frozen_world","unit":"meter","up_axis":"Z","meters_per_unit":1},
+               "bindings":[{"entity_id":"bound_"+o.name,"adapter":"blender","native_id":o.name,"semantic_type":"object",
+                            "room_id":"unassigned","authority_level":"HUMAN_DESIGN_GUIDE"} for o in common.eligible_objects()]}
+        common.write_json(sidecar,value)
+        args=self.args(bindings=str(sidecar),source_resource_id="frozen_source",source_revision="r4")
+        manifest=export_proxy(args)
+        self.assertEqual(manifest["design_id"],"frozen_design")
+        for field in ["source_resource_id","source_revision"]:
+            with self.subTest(field=field):
+                wrong=SimpleNamespace(**{**vars(args),field:"wrong"})
+                with self.assertRaises(ProtocolError):export_proxy(wrong)
+                self.assertEqual(common.file_sha256(self.source),sha)
+        self.assertEqual(common.file_sha256(self.source),sha)
+        self.assertEqual(Path(self.source).stat().st_mtime_ns,mtime)
+        # A frozen refusal must not overwrite the supplied sidecar with its acknowledgement.
+        request_path=Path(self.work.name)/"request.json"
+        common.write_json(request_path,self.request())
+        before_registry=sidecar.read_bytes()
+        with patch.object(sys,"argv",["apply_intent.py","--","--bindings",str(sidecar),"--intent",str(request_path),"--result",str(sidecar)]):
+            with self.assertRaises(ProtocolError):adapter_module.main()
+        self.assertEqual(sidecar.read_bytes(),before_registry)
+        # A registry modified between parsing and publication cannot describe the emitted IDs.
+        value["source_sha256"]=sha
+        common.write_json(sidecar,value)
+        real_hash=producer.file_sha256
+        edited=False
+        def edit_during_source_hash(path):
+            nonlocal edited
+            if str(path)==self.source and not edited:
+                edited=True
+                changed=deepcopy(value)
+                changed["registry_revision"]="2"
+                changed["bindings"][0]["entity_id"]="changed_id"
+                common.write_json(sidecar,changed)
+            return real_hash(path)
+        with patch("export_proxy.file_sha256",side_effect=edit_during_source_hash):
+            with self.assertRaises(ProtocolError):export_proxy(args)
+        self.assertEqual(common.file_sha256(self.source),sha)
+        data=(Path(args.output)/"interaction_proxy.glb").read_bytes()
+        doc=json.loads(data[20:20+struct.unpack_from("<I",data,12)[0]])
+        self.assertTrue(all(not node["extras"]["mutable"] for node in doc["nodes"]))
+        for obj in common.eligible_objects():self.assertNotIn("spatial_canvas_global_id",obj)
+        value["source_sha256"]="b"*64
+        common.write_json(sidecar,value)
+        with self.assertRaises(ProtocolError):export_proxy(args)
+        self.assertEqual(common.file_sha256(self.source),sha)
+        with patch.object(sys,"argv",["export_proxy.py","--","--initialize-ids","--output",args.output]):
+            with self.assertRaises(ProtocolError):producer.main()
+        with patch.object(sys,"argv",["export_proxy.py","--","--bindings",str(sidecar),"--initialize-ids","--editable-source","--output",args.output]):
+            with self.assertRaises(ProtocolError):producer.main()
+        self.assertEqual(common.file_sha256(self.source),sha)
+        self.assertEqual(Path(self.source).stat().st_mtime_ns,mtime)
 
     def test_sheared_parent_world_geometry_survives_export(self):
         sofa = bpy.data.objects["Sofa"]

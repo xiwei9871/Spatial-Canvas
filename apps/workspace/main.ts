@@ -1,11 +1,13 @@
 import './style.css';
 import { createIntent, reconcileSelection, select } from '../../packages/core/index';
+import { createContextPacket } from '../../packages/core/context';
+import type { ContextHit } from '../../packages/protocol/context';
 import { manifestSchema, type Intent, type Manifest, type ProtocolEvent, type SelectionEvent } from '../../packages/protocol/index';
 import { loadProxy, ProxyViewer, type LoadedProxy } from '../../packages/viewer/index';
 import { disposeScene, spatialMetadata } from '../../packages/viewer/scene';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header><div><h1>Spatial Canvas <small>V0.2</small></h1><p>Point to stable entities. Send intent to the source.</p></div>
+  <header><div><h1>Spatial Canvas <small>V0.3</small></h1><p>Point to stable entities. Send intent to the source.</p></div>
     <div class="toolbar"><button id="example">Load full example</button><button id="task">Load task example</button>
     <label class="file-button">Open local export<input id="files" type="file" accept=".json,.glb" multiple></label>
     <button id="reload" disabled>Reload proxy</button></div></header>
@@ -19,7 +21,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -30,6 +32,8 @@ const events: ProtocolEvent[] = [];
 let lastExample: 'interaction_proxy' | 'task_proxy' | undefined;
 let loadingGeneration = 0;
 let latestIntent: Intent | undefined;
+let lastSelection:SelectionEvent|undefined;
+let currentHit:ContextHit|null=null;
 
 function emit(event: ProtocolEvent) {
   if (event.schema === 'spatial-canvas.intent.v1') {
@@ -44,15 +48,20 @@ function emit(event: ProtocolEvent) {
   window.dispatchEvent(new CustomEvent(event.schema, { detail: structuredClone(event) }));
 }
 function applySelection(event: SelectionEvent) {
+  lastSelection=event;
   selected = event.entity_ids;
+  if(currentHit&&!selected.includes(currentHit.entity_id))currentHit=null;
   viewer.highlight(selected);
   renderSelection();
   emit(event);
 }
 function choose(id: string | null, additive: boolean, source: SelectionEvent['source']) {
+  if(source!=='pointer')currentHit=null;
   if (manifest && proxy) applySelection(select(selected, id, additive, source, manifest, proxy.entities));
 }
-const viewer = new ProxyViewer(el('viewer'), (id, additive) => choose(id, additive, 'pointer'));
+const viewer = new ProxyViewer(el('viewer'), (id, additive, hit) => {
+  currentHit=hit;choose(id,additive,'pointer');
+});
 
 function renderSelection() {
   el('selected-count').textContent = selected.length + ' selected';
@@ -89,11 +98,13 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   proxy = nextProxy;
   lastExample = example;
   latestIntent = undefined;
+  currentHit=null;
   el<HTMLButtonElement>('download-intent').disabled = true;
-  viewer.setProxy(nextProxy);
+  viewer.setProxy(nextProxy,manifest.coordinate_frame);
   el('resource').textContent = [manifest.resource_id, manifest.scope, 'derived', manifest.source_revision].join(' · ');
   el('count').textContent = String(manifest.entity_count);
   el<HTMLButtonElement>('reload').disabled = false;
+  el<HTMLButtonElement>('download-context').disabled=false;
   applySelection(event);
   status('Loaded ' + manifest.proxy_uri + ' — ' + manifest.entity_count + ' stable entities. Source: ' + manifest.source_resource);
 }
@@ -160,6 +171,18 @@ el('download-intent').addEventListener('click', () => {
   const link = document.createElement('a');
   link.href = url; link.download = 'spatial-canvas.intent.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+el('download-context').addEventListener('click',()=>{
+  if(!manifest||!proxy||!lastSelection)return;
+  try{
+    const packet=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit);
+    emit(packet);
+    const url=URL.createObjectURL(new Blob([JSON.stringify(packet,null,2)],{type:'application/json'}));
+    const link=document.createElement('a');
+    link.href=url;link.download='spatial-canvas.context.json';link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    status('ContextPacket exported with current source, stable identity, view and actual hit.');
+  }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
 el('viewer').addEventListener('dragover', (event) => event.preventDefault());
 el('viewer').addEventListener('drop', (event) => {

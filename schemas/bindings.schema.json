@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "spatial-canvas.bindings.v1"
+    },
+    "registry_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "registry_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_locator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_authority": {
+      "type": "string",
+      "const": "frozen"
+    },
+    "source_frame": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "meter",
+            "centimeter",
+            "millimeter",
+            "scene_unit"
+          ]
+        },
+        "up_axis": {
+          "type": "string",
+          "enum": [
+            "X",
+            "Y",
+            "Z"
+          ]
+        },
+        "meters_per_unit": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "frame_id",
+        "unit",
+        "up_axis",
+        "meters_per_unit"
+      ]
+    },
+    "bindings": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adapter": {
+            "type": "string",
+            "minLength": 1
+          },
+          "native_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "semantic_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "room_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority_level": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_GROUND_TRUTH",
+              "SEMANTIC_GROUND_TRUTH",
+              "HUMAN_DESIGN_GUIDE",
+              "DERIVED_DESIGN_MODEL",
+              "PRESENTATION"
+            ]
+          }
+        },
+        "required": [
+          "entity_id",
+          "adapter",
+          "native_id",
+          "semantic_type",
+          "room_id",
+          "authority_level"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "registry_id",
+    "registry_revision",
+    "design_id",
+    "source_resource_id",
+    "source_revision",
+    "source_sha256",
+    "source_locator",
+    "source_authority",
+    "bindings"
+  ],
+  "$id": "urn:spatial-canvas:bindings:v1"
+}

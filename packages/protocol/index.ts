@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ContextPacket } from './context';
 
 const id = z.string().min(1);
 const revision = z.string().min(1);
@@ -6,6 +7,7 @@ const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const timestamp = z.iso.datetime();
 const vec3 = z.tuple([z.number(), z.number(), z.number()]);
 const uniqueIds = z.array(id).refine((ids) => new Set(ids).size === ids.length, 'Duplicate entity IDs');
+export const authorityLevelSchema=z.enum(['PHYSICAL_GROUND_TRUTH','SEMANTIC_GROUND_TRUTH','HUMAN_DESIGN_GUIDE','DERIVED_DESIGN_MODEL','PRESENTATION']);
 const errorSchema = z.object({ code: id, message: id, details: z.record(z.string(), z.unknown()).optional() });
 export const frameSchema = z.object({
   coordinate_frame: id, unit: z.enum(['meter', 'millimeter', 'centimeter']), up_axis: z.enum(['X', 'Y', 'Z']),
@@ -28,7 +30,7 @@ export const manifestSchema = resourceSchema.extend({
 export const entitySchema = z.object({
   design_id: id, global_id: id, native_object_id: id, semantic_type: id, room_id: id,
   source_resource_id: id, source_revision: revision, parent_id: id.optional(),
-  authority_level: id.optional(), mutable: z.boolean().optional(),
+  authority_level: authorityLevelSchema.optional(), mutable: z.boolean().optional(),
   extensions: z.record(z.string(), z.unknown()).optional(),
 });
 export const selectionSchema = z.object({
@@ -68,5 +70,5 @@ export type Manifest = z.infer<typeof manifestSchema>;
 export type Entity = z.infer<typeof entitySchema>;
 export type SelectionEvent = z.infer<typeof selectionSchema>;
 export type Intent = z.infer<typeof intentSchema>;
-export type ProtocolEvent = SelectionEvent | Intent;
+export type ProtocolEvent = SelectionEvent | Intent | ContextPacket;
 export type ExecutionResult = z.infer<typeof executionResultSchema>;

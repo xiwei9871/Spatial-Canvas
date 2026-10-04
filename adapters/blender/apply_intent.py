@@ -112,17 +112,21 @@ def main():
     parser = argparse.ArgumentParser(description="Execute a saved request-only intent against authoritative .blend")
     parser.add_argument("--intent", required=True)
     parser.add_argument("--result", required=True)
+    parser.add_argument("--bindings",help="Declare a frozen sidecar source; execution is prohibited")
     args = parser.parse_args(sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else [])
     source = Path(bpy.data.filepath).resolve()
     result_path = Path(args.result).resolve()
     # Never overwrite source/intent while emitting acknowledgements.
-    if result_path.suffix != ".json" or result_path in [source, Path(args.intent).resolve()]:
+    protected=[source,Path(args.intent).resolve()]
+    if args.bindings:protected.append(Path(args.bindings).resolve())
+    if result_path.suffix != ".json" or result_path in protected:
         raise ProtocolError("--result must be a separate .json file")
     intent = {}
     try:
         intent = json.loads(Path(args.intent).read_text(encoding="utf8"))
         if not isinstance(intent, dict):
             raise ProtocolError("Intent JSON must be an object")
+        if args.bindings:raise ProtocolError("Frozen sidecar sources permit context only", "frozen_source")
         if not source.is_file():
             raise ProtocolError("Load a saved source .blend")
         result = execute_saved_intent(intent, source)

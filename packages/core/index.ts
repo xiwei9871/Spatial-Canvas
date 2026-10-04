@@ -28,6 +28,8 @@ export function reconcileSelection(current: readonly string[], previousDesignId:
 }
 
 export function createIntent(manifest: Manifest, ids: readonly string[], entities: ReadonlyMap<string, Entity>, translation: [number, number, number]) {
+  const adapter=manifest.extensions?.['spatial_canvas.blender'] as {source_authority?:string}|undefined;
+  if(adapter?.source_authority==='frozen')throw new Error('Frozen sources only permit context packets');
   const targets = ids.map((id) => {
     const entity = entities.get(id);
     if (!entity) throw new Error('Unknown entity: ' + id);
