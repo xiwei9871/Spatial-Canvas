@@ -44,5 +44,10 @@ it('validates sidecar/context/camera portable shapes alongside semantic runtime 
     const validate=ajv.compile(schema);
     expect(validate(value),JSON.stringify(validate.errors)).toBe(true);
     if(name!=='camera-view')expect(validate({...value,schema:'unsupported'})).toBe(false);
+    if(name==='context'){
+      expect(validate({...packet,selection:{...packet.selection,primary_entity_id:undefined}})).toBe(false);
+      expect(validate({...packet,view:{kind:'camera3d',data:{...packet.view.data,fov_degrees:undefined}}})).toBe(false);
+      expect(validate({...packet,view:{kind:'camera3d',data:{...packet.view.data,fov_degrees:181}}})).toBe(false);
+    }
   }
 });

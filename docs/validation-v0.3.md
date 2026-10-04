@@ -56,3 +56,7 @@ Independent review identified and verified fixes for result/registry output alia
 Source paths and exact local evidence are in task-output/v03-c-type/source-before.json, source-after.json, context-validation.json and the three packet/resolution files. Full/task GLBs, sidecar/inventory JSON, logs and screenshots remain local and ignored. No existing asset was deleted or moved.
 
 V0.3 is read-only dogfood. Sidecar semantics require deliberate review, not automatic inference. Consumer lookup must recheck source/registry hashes. Unknown source revisions/native changes do not auto-rebind. No WebSocket, watcher, extra Blender editing operation, image/DOM/UE viewer or provider SDK has been added.
+
+## Formal Issue #5 follow-up
+
+See [Issue #5 conformance](issue5-conformance.md) for the reviewed 12-object subset, primary selection, actual normals/projection/FOV, expected source ID/revision rejection and the independent packet-only Codex handoff. Original discovery/first-round captures above remain intact. The current complete gate uses representative/ outputs and reports 51 Vitest tests.

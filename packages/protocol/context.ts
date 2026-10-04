@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { entitySchema, resourceSchema, selectionSchema } from './index';
+import { authorityLevelSchema, entitySchema, resourceSchema, selectionSchema } from './index';
 
 const id = z.string().min(1);
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const xyz = z.tuple([z.number(), z.number(), z.number()]);
-const authority = z.enum(['PHYSICAL_GROUND_TRUTH', 'SEMANTIC_GROUND_TRUTH', 'HUMAN_DESIGN_GUIDE', 'DERIVED_DESIGN_MODEL', 'PRESENTATION']);
 export const sourceFrameSchema = z.object({
   frame_id: id, unit: z.enum(['meter','centimeter','millimeter','scene_unit']),
   up_axis: z.enum(['X','Y','Z']), meters_per_unit: z.number().positive(),
@@ -17,23 +16,30 @@ export const bindingRegistrySchema = z.object({
   design_id: id, source_resource_id: id, source_revision: id, source_sha256: hash,
   source_locator: id, source_authority: z.literal('frozen'), source_frame: sourceFrameSchema.optional(),
   bindings: z.array(z.object({
-    entity_id: id, adapter: id, native_id: id, semantic_type: id, room_id: id, authority_level: authority,
+    entity_id: id, adapter: id, native_id: id, semantic_type: id, room_id: id, authority_level: authorityLevelSchema,
   })).min(1).refine((items)=>new Set(items.map(x=>x.entity_id)).size===items.length,'Duplicate entity_id')
     .refine((items)=>new Set(items.map(x=>JSON.stringify([x.adapter,x.native_id]))).size===items.length,'Duplicate native mapping'),
 });
 export const cameraViewSchema = z.object({
+  projection:z.literal('perspective'),fov_degrees:z.number().positive().lt(180),
+  near:z.number().positive(),far:z.number().positive(),
   position: xyz, quaternion: z.tuple([z.number(),z.number(),z.number(),z.number()]),
   projection_matrix: z.array(z.number()).length(16), orbit_target: xyz,
   viewport: z.object({width:z.number().positive(),height:z.number().positive(),pixel_ratio:z.number().positive()}),
   frame_id: id, unit:z.literal('meter'),up_axis:z.literal('Y'),
-});
+}).refine(view=>view.far>view.near,'Camera far must exceed near');
 export const contextHitSchema = z.object({
   entity_id:id, xyz, frame_id:id, unit:z.literal('meter'),
-  source:z.object({xyz,frame_id:id,unit:id}).optional(),
+  normal:xyz.optional(),
+  source:z.object({xyz,frame_id:id,unit:id,normal:xyz.optional()}).optional(),
 });
+export const contextSelectionSchema=selectionSchema.safeExtend({primary_entity_id:id.nullable()})
+  .refine(selection=>selection.entity_ids.length
+    ?selection.primary_entity_id!==null&&selection.entity_ids.includes(selection.primary_entity_id)
+    :selection.primary_entity_id===null,'Primary entity must identify a selected entity, or null when cleared');
 export const contextPacketSchema = z.object({
   schema:z.literal('spatial-canvas.context.v1'),packet_id:id,timestamp:z.iso.datetime(),
-  selection:selectionSchema,resource:resourceSchema,
+  selection:contextSelectionSchema,resource:resourceSchema,
   source:z.object({
     resource_id:id, revision:id, sha256:hash, locator:id, authority:z.enum(['editable','frozen']),
     bindings:z.object({registry_id:id,registry_revision:id,sha256:hash,locator:id}).optional(),
@@ -56,6 +62,7 @@ export const contextPacketSchema = z.object({
   }
   if(packet.view.kind==='camera3d' && !cameraViewSchema.safeParse(packet.view.data).success) reject('Invalid camera view');
   if(packet.hit && !ids.includes(packet.hit.entity_id)) reject('Hit must identify a selected entity');
+  if(packet.hit && packet.hit.entity_id!==packet.selection.primary_entity_id)reject('Hit must identify the primary entity');
   if(packet.hit && packet.view.kind==='camera3d' && packet.hit.frame_id!==packet.view.data.frame_id) reject('Hit/view frame mismatch');
 });
 
@@ -63,3 +70,4 @@ export type BindingRegistry=z.infer<typeof bindingRegistrySchema>;
 export type CameraView=z.infer<typeof cameraViewSchema>;
 export type ContextHit=z.infer<typeof contextHitSchema>;
 export type ContextPacket=z.infer<typeof contextPacketSchema>;
+export type ContextSelection=z.infer<typeof contextSelectionSchema>;

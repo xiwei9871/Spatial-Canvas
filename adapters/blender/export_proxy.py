@@ -19,6 +19,10 @@ def frozen_entities(args):
     registry_path=Path(args.bindings).resolve()
     raw=registry_path.read_bytes()
     registry=validate_registry(json.loads(raw))
+    if getattr(args,"source_resource_id",None)!=registry["source_resource_id"]:
+        raise ProtocolError("Requested source_resource_id disagrees with registry")
+    if getattr(args,"source_revision",None)!=registry["source_revision"]:
+        raise ProtocolError("Requested source_revision disagrees with registry")
     source=Path(bpy.data.filepath).resolve()
     if Path(registry["source_locator"]).resolve()!=source or file_sha256(source)!=registry["source_sha256"]:
         raise ProtocolError("Frozen source locator or SHA mismatch")
@@ -29,12 +33,15 @@ def frozen_entities(args):
     metadata={"design_id":registry["design_id"],"source_resource_id":registry["source_resource_id"],
               "source_revision":registry["source_revision"],"coordinate_frame":frame["frame_id"],
               "source_unit_scale":frame["meters_per_unit"]}
-    eligible={obj.name:obj for obj in eligible_objects()}
+    eligible={}
+    for obj in eligible_objects():eligible.setdefault(obj.name,[]).append(obj)
     entities={}
     for binding in registry["bindings"]:
         if binding["adapter"]!="blender":raise ProtocolError("This producer requires Blender bindings")
-        obj=eligible.get(binding["native_id"])
-        if obj is None:raise ProtocolError("Missing/ineligible native binding: "+binding["native_id"])
+        matches=eligible.get(binding["native_id"],[])
+        if len(matches)!=1:raise ProtocolError("Missing/ambiguous native binding: "+binding["native_id"])
+        obj=matches[0]
+        if obj.library or obj.data.library:raise ProtocolError("Frozen bindings require local mesh data; linked dependencies need their own snapshot policy")
         if args.scope=="task":
             if args.room_id and binding["room_id"]!=args.room_id:continue
             if args.global_ids and binding["entity_id"] not in args.global_ids:continue
@@ -192,6 +199,8 @@ def main():
     parser.add_argument("--initialize-ids", action="store_true")
     parser.add_argument("--bindings", help="Frozen sidecar registry; source is read-only")
     parser.add_argument("--editable-source",action="store_true",help="Explicitly authorize in-source ID initialization")
+    parser.add_argument("--source-resource-id",help="Expected source identity (required with --bindings)")
+    parser.add_argument("--source-revision",help="Expected source revision (required with --bindings)")
     args = parser.parse_args(sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else [])
     source = bpy.data.filepath
     if not source:
@@ -201,6 +210,8 @@ def main():
     if args.bindings and args.editable_source:
         raise ProtocolError("Sidecar mode cannot be combined with --editable-source")
     if args.bindings:
+        if not args.source_resource_id or not args.source_revision:
+            raise ProtocolError("Sidecar export requires --source-resource-id and --source-revision")
         if args.initialize_ids:raise ProtocolError("Frozen sidecar mode forbids --initialize-ids")
         # Do not create a sibling lock or write in the frozen source directory.
         bpy.ops.wm.open_mainfile(filepath=source)

@@ -39,14 +39,14 @@ See schemas/context.schema.json and packages/protocol/context.ts. Wire schema is
 | Field | Meaning |
 | --- | --- |
 | packet_id, timestamp | Unique capture ID and UTC export timestamp |
-| selection | Existing resulting-state selection event |
+| selection | Existing resulting-state selection plus explicit primary_entity_id |
 | resource | Generic resource identity/type/format/derived authority |
 | source | Resource ID, revision, SHA, locator, editable/frozen policy, optional registry reference |
 | entities | Selected semantic/native metadata in selection order |
 | view | Open kind plus payload; camera3d payload is validated |
 | hit | Last actual pointer intersection for a currently selected entity, or null |
 
-camera3d contains position, quaternion, column-major projection matrix, orbit target, viewport dimensions/pixel ratio, and proxy frame/unit/up axis. View is sampled at packet export. Hit corresponds to the selection gesture, whose timestamp is retained. It is never a bounding-box center. List/keyboard selections, clear, removed targets and proxy reload invalidate the old hit. Failed imports preserve the last valid resource and context state.
+camera3d contains explicit perspective projection, FOV in degrees, near/far, world position, quaternion [x,y,z,w], column-major projection matrix, orbit target, viewport dimensions/pixel ratio, and proxy frame/unit/up axis. The local viewing direction is negative Z. World hit normals are included when available; normals are dimensionless directions transformed by inverse-transpose, while source normal conversion uses axis rotation only. View is sampled at packet export. Hit corresponds to the selection gesture, whose timestamp is retained. It is never a bounding-box center. List/keyboard selections, clear, removed targets and proxy reload invalidate the old hit. Failed imports preserve the last valid resource and context state.
 
 The primary hit.xyz is always in the declared proxy frame, Y-up meters. An optional hit.source provides converted coordinates in a explicitly declared Blender source frame:
 
@@ -65,3 +65,5 @@ Packets locate and describe context; they never authorize edits. Consumers must 
 Initial wire schemas are bindings.v1 and context.v1. Unsupported versions are rejected. Nonbreaking optional metadata can be added; incompatible identity/frame semantics require a new version. No automatically inferred migrations.
 
 Source code, schemas, tests and docs belong in Git. Real sidecars, proxies, context packets and screenshots contain project-local artifact data and stay in ignored task-output/. Hash-linked metadata is useful evidence, not a cryptographic guarantee that a proxy or packet accurately represents its source. Complete offline export before loading the GLB/manifest pair; multi-file atomicity is not claimed.
+
+Frozen exporters require explicit --source-resource-id and --source-revision matching the sidecar, in addition to matching the actual file hash. For the formal 12-binding real-project gate and packet-only AI handoff, see [Issue #5 conformance](issue5-conformance.md).

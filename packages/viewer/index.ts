@@ -1,4 +1,4 @@
-import { AmbientLight, Box3, Box3Helper, Color, DirectionalLight, GridHelper, Group, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
+import { AmbientLight, Box3, Box3Helper, Color, DirectionalLight, GridHelper, Group, Matrix3, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { preflightGlb } from '../protocol/glb';
@@ -59,7 +59,8 @@ export class ProxyViewer {
       const hit = this.raycaster.intersectObjects([...this.current.meshEntities.keys()], false)[0];
       const id=hit ? this.current.meshEntities.get(hit.object as Mesh)?.global_id ?? null : null;
       const point=hit&&id?{entity_id:id,xyz:hit.point.toArray() as [number,number,number],
-        frame_id:this.coordinateFrame,unit:'meter' as const}:null;
+        frame_id:this.coordinateFrame,unit:'meter' as const,
+        ...(hit.face?{normal:hit.face.normal.clone().applyMatrix3(new Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize().toArray() as [number,number,number]}:{})}:null;
       onSelect(id,event.shiftKey||event.ctrlKey||event.metaKey,point);
     });
   }
@@ -67,6 +68,7 @@ export class ProxyViewer {
 
   viewSnapshot(frameId:string):CameraView {
     return {
+      projection:'perspective',fov_degrees:this.camera.fov,near:this.camera.near,far:this.camera.far,
       position:this.camera.position.toArray(),quaternion:this.camera.quaternion.toArray(),
       projection_matrix:this.camera.projectionMatrix.toArray(),orbit_target:this.controls.target.toArray(),
       viewport:{width:this.renderer.domElement.clientWidth,height:this.renderer.domElement.clientHeight,

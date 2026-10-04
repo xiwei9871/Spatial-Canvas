@@ -14,10 +14,16 @@ See docs/protocol-v0.3.md, docs/frozen-workflow-v0.3.md and docs/validation-v0.3
 
 ## Validation and boundaries
 
-- Lint/typecheck/build and 48 Vitest tests across 9 files passed.
+- Lint/typecheck/build and 51 Vitest tests across 9 files passed.
 - 15 actual bpy tests passed; existing V0.1/V0.2 integration gates remain green.
 - 5 Python request/coordinate tests and 3 sidecar tests passed.
 - Real frozen context validation and three read-only resolutions passed.
 - Schema/fixture generation consistent; independent review fixes verified for output alias safety, frame/unit integrity and exact registry parse/hash snapshots.
 
 No additional editing operations, live sync, watcher, AI SDK, image/DOM/UE viewer or cloud backend. Registry/view envelopes preserve future adapter paths without implementing those integrations. Existing build advisories remain non-blocking.
+
+## Issue #5 acceptance completion
+
+Reviewed 12 real R4 bindings with retained stable IDs; full=12/task=3. Recaptured sofa/wall/door packets with explicit primary selection, world normals and projection/FOV/near/far. Export now validates the caller-requested source identity/revision. Shared authority vocabulary is enforced in entity and binding schemas. A no-history Codex agent read only the sofa packet and correctly identified resource/source, global/native ID, room/type, revision/SHA, exact point/normal and camera without opening/scanning the scene. See docs/issue5-conformance.md.
+
+Closes #5

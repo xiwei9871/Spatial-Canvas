@@ -36,4 +36,12 @@ describe('context contracts', () => {
     expect(contextPacketSchema.safeParse({...packet,hit:{...packet.hit,xyz:[Infinity,0,0]}}).success).toBe(false);
     expect(contextPacketSchema.safeParse({...packet,view:{kind:'camera3d',data:{...packet.view.data,position:[NaN,0,0]}}}).success).toBe(false);
   });
+  it('requires valid explicit primary selection, perspective FOV and finite normal',()=>{
+    expect(contextPacketSchema.safeParse({...packet,selection:{...packet.selection,primary_entity_id:'missing'}}).success).toBe(false);
+    expect(contextPacketSchema.safeParse({...packet,selection:{...packet.selection,primary_entity_id:null}}).success).toBe(false);
+    expect(contextPacketSchema.safeParse({...packet,hit:{...packet.hit,normal:[NaN,0,1]}}).success).toBe(false);
+    expect(contextPacketSchema.safeParse({...packet,view:{kind:'camera3d',data:{...packet.view.data,projection:'perspective',fov_degrees:200}}}).success).toBe(false);
+    expect(contextPacketSchema.safeParse({...packet,selection:{...packet.selection,entity_ids:[],primary_entity_id:null,mode:'clear'},
+      entities:[],hit:null}).success).toBe(true);
+  });
 });

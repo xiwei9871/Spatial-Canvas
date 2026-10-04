@@ -19,11 +19,11 @@ Review the generated inventory and annotate explicit native bindings with semant
 
 ~~~sh
 blender --background --factory-startup /absolute/frozen.blend --python-exit-code 1 --python adapters/blender/export_proxy.py -- \
-  --bindings task-output/frozen/spatial-canvas.bindings.json \
+  --bindings task-output/frozen/spatial-canvas.bindings.json --source-resource-id source_r4 --source-revision r4 \
   --output task-output/frozen/full --scope full
 
 blender --background --factory-startup /absolute/frozen.blend --python-exit-code 1 --python adapters/blender/export_proxy.py -- \
-  --bindings task-output/frozen/spatial-canvas.bindings.json \
+  --bindings task-output/frozen/spatial-canvas.bindings.json --source-resource-id source_r4 --source-revision r4 \
   --output task-output/frozen/task --scope task --global-id ENTITY_ID
 ~~~
 
@@ -51,7 +51,7 @@ npm run test:adapter
 npm run test:bindings
 npm run schemas
 npm run fixture
-npm run context:validate -- task-output/v03-c-type
+npm run context:validate -- task-output/v03-c-type/representative
 ~~~
 
 The last command checks the locally retained real C-Type dogfood artifacts and requires those files. It is not a clone/CI requirement. CI retains portable tests and skips bpy checks when Blender is absent. docs/validation-v0.3.md records the actual R4 gate.

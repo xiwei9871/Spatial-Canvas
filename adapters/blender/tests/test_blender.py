@@ -61,6 +61,9 @@ class BlenderGates(unittest.TestCase):
         common.initialize_ids()
         self.assertEqual(common.scene_metadata()["source_revision"], "rev-00007")
         self.assertEqual(bpy.data.objects["Sofa"]["spatial_canvas_global_id"], "sofa")
+        del bpy.data.objects["Sofa"]["spatial_canvas_authority_level"]
+        common.initialize_ids()
+        self.assertEqual(bpy.data.objects["Sofa"]["spatial_canvas_authority_level"],"HUMAN_DESIGN_GUIDE")
 
     def test_rename_preserves_global_id_and_updates_native_locator(self):
         bpy.data.objects["Sofa"].name = "Renamed_Sofa"
@@ -234,9 +237,14 @@ class BlenderGates(unittest.TestCase):
                "bindings":[{"entity_id":"bound_"+o.name,"adapter":"blender","native_id":o.name,"semantic_type":"object",
                             "room_id":"unassigned","authority_level":"HUMAN_DESIGN_GUIDE"} for o in common.eligible_objects()]}
         common.write_json(sidecar,value)
-        args=self.args(bindings=str(sidecar))
+        args=self.args(bindings=str(sidecar),source_resource_id="frozen_source",source_revision="r4")
         manifest=export_proxy(args)
         self.assertEqual(manifest["design_id"],"frozen_design")
+        for field in ["source_resource_id","source_revision"]:
+            with self.subTest(field=field):
+                wrong=SimpleNamespace(**{**vars(args),field:"wrong"})
+                with self.assertRaises(ProtocolError):export_proxy(wrong)
+                self.assertEqual(common.file_sha256(self.source),sha)
         self.assertEqual(common.file_sha256(self.source),sha)
         self.assertEqual(Path(self.source).stat().st_mtime_ns,mtime)
         # A frozen refusal must not overwrite the supplied sidecar with its acknowledgement.

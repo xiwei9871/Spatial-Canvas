@@ -18,6 +18,17 @@ for (const [name, schema] of Object.entries({ resource: resourceSchema, entity: 
       }
     }
   }
+  if(name==='context'){
+    const camera=z.toJSONSchema(cameraViewSchema,{target:'draft-7',io:'input'});
+    delete camera.$schema;
+    json.allOf=[
+      {if:{properties:{view:{properties:{kind:{const:'camera3d'}},required:['kind']}},required:['view']},
+        then:{properties:{view:{properties:{data:camera}}}}},
+      {if:{properties:{selection:{properties:{entity_ids:{maxItems:0}},required:['entity_ids']}},required:['selection']},
+        then:{properties:{selection:{properties:{primary_entity_id:{type:'null'}}}}},
+        else:{properties:{selection:{properties:{primary_entity_id:{type:'string',minLength:1}}}}}},
+    ];
+  }
   json.$id = `urn:spatial-canvas:${name}:v1`;
   await writeFile(`schemas/${name}.schema.json`, JSON.stringify(json, null, 2) + '\n');
 }

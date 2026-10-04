@@ -42,6 +42,10 @@ def main():
         packet["selection"]["resource_id"]!=packet["resource"]["resource_id"] or
         packet["selection"]["entity_ids"]!=[entity["global_id"] for entity in packet["entities"]]):
         raise ProtocolError("Context selection mismatch")
+    primary=packet["selection"].get("primary_entity_id")
+    if (packet["selection"]["entity_ids"] and primary not in packet["selection"]["entity_ids"]) or (
+        not packet["selection"]["entity_ids"] and primary is not None):
+        raise ProtocolError("Context primary selection mismatch")
     bindings={binding["entity_id"]:binding for binding in registry["bindings"]}
     bpy.ops.wm.open_mainfile(filepath=str(source))
     resolved=[]

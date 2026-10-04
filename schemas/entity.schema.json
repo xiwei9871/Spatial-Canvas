@@ -36,7 +36,13 @@
     },
     "authority_level": {
       "type": "string",
-      "minLength": 1
+      "enum": [
+        "PHYSICAL_GROUND_TRUTH",
+        "SEMANTIC_GROUND_TRUTH",
+        "HUMAN_DESIGN_GUIDE",
+        "DERIVED_DESIGN_MODEL",
+        "PRESENTATION"
+      ]
     },
     "mutable": {
       "type": "boolean"
