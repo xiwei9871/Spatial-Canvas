@@ -1,4 +1,4 @@
-import { AmbientLight, Box3, Box3Helper, Color, DirectionalLight, GridHelper, Group, Matrix3, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, AmbientLight, Box3, Box3Helper, Color, DirectionalLight, GridHelper, Group, Matrix3, Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { preflightGlb } from '../protocol/glb';
@@ -27,6 +27,8 @@ export class ProxyViewer {
 
   constructor(host: HTMLElement, onSelect: (id: string | null, additive: boolean, hit:ContextHit|null) => void) {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping=ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure=1;
     this.scene.background = new Color('#e9eeed');
     this.renderer.domElement.setAttribute('aria-label', '3D interaction proxy');
     this.renderer.domElement.tabIndex = 0;
@@ -34,8 +36,8 @@ export class ProxyViewer {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.camera.position.set(5, 4, 6);
-    this.scene.add(new AmbientLight(0xffffff, 2));
-    const light = new DirectionalLight(0xffffff, 3);
+    this.scene.add(new AmbientLight(0xffffff, .85));
+    const light = new DirectionalLight(0xffffff, 2);
     light.position.set(3, 7, 4);
     this.scene.add(light, new GridHelper(20, 20, '#a9b9b6', '#cdd6d4'), this.highlights);
     this.resize = new ResizeObserver(() => {

@@ -27,7 +27,7 @@ blender --background --factory-startup /absolute/frozen.blend --python-exit-code
   --output task-output/frozen/task --scope task --global-id ENTITY_ID
 ~~~
 
-Full exports include registered eligible meshes; task exports can filter entity IDs, room or collection. Both preserve identity and use the existing proxy manifest/GLB protocol. Materials/textures and source editing state are stripped from temporary evaluated meshes. The source is never saved.
+Full exports include registered eligible meshes; task exports can filter entity IDs, room or collection. Both preserve identity and use the existing proxy manifest/GLB protocol. Source shader graphs/textures and editing state are stripped from temporary evaluated meshes; simple flat display colors are supported. See [display colors](proxy-display-colors.md). The source is never saved.
 
 ## Workspace and packet consumption
 

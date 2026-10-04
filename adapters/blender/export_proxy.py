@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (PROXY_FRAME, ProtocolError, atomic_save_source, collect_entities, eligible_objects,
                     file_sha256, initialize_ids, scene_metadata, source_lock, write_json)
 from bindings import validate_registry
+from proxy_colors import assign_flat_colors
 
 def frozen_entities(args):
     registry_path=Path(args.bindings).resolve()
@@ -134,6 +135,8 @@ def export_proxy(args):
     temp_scene.unit_settings.system = "METRIC"
     temp_scene.unit_settings.scale_length = 1.0
     temp_objects, temp_meshes = [], []
+    temp_materials,color_cache,color_counts=[],{},{}
+    color_mode=getattr(args,"color_mode","source-flat")
     window = bpy.context.window
     try:
         meter_scale = Matrix.Diagonal((metadata["source_unit_scale"],) * 3 + (1.0,))
@@ -143,7 +146,10 @@ def export_proxy(args):
             temp_meshes.append(mesh)
             if not mesh.polygons:
                 raise ProtocolError("Entity has no evaluated faces: " + entity["global_id"])
-            mesh.materials.clear()
+            if color_mode in ["source-flat","zoning-flat"]:
+                assign_flat_colors(mesh,entity,color_cache,temp_materials,color_counts,color_mode,source)
+            else:
+                mesh.materials.clear()
             # Flatten each entity to its evaluated world transform; no rig/parent state is exported.
             duplicate = bpy.data.objects.new(entity["native_object_id"], mesh)
             temp_objects.append(duplicate)
@@ -166,7 +172,7 @@ def export_proxy(args):
             staged_glb = Path(staging) / (name + ".glb")
             result = bpy.ops.export_scene.gltf(
                 filepath=str(staged_glb), export_format="GLB", use_selection=True, use_active_scene=True,
-                export_extras=True, export_yup=True, export_materials="NONE", export_texcoords=False,
+                export_extras=True, export_yup=True, export_materials="EXPORT" if color_mode!="none" else "NONE", export_texcoords=False,
                 export_cameras=False, export_lights=False, export_animations=False, export_skins=False,
                 export_morph=False, export_gpu_instances=False, export_attributes=False,
             )
@@ -177,6 +183,9 @@ def export_proxy(args):
             if reference and file_sha256(reference["locator"])!=reference["sha256"]:
                 raise ProtocolError("Binding registry changed during export")
             # Publish manifest last. Consumers must wait for the offline command to finish.
+            manifest["extensions"]["spatial_canvas.presentation"]={
+                "color_mode":color_mode,"textures":False,"opaque":True,"roughness":1,
+                "color_origins":color_counts,"flat_color_count":len(color_cache)}
             os.replace(staged_glb, output / (name + ".glb"))
             write_json(output / (name + ".manifest.json"), manifest)
         return manifest
@@ -186,6 +195,8 @@ def export_proxy(args):
             bpy.data.objects.remove(obj, do_unlink=True)
         for mesh in temp_meshes:
             bpy.data.meshes.remove(mesh)
+        for material in temp_materials:
+            bpy.data.materials.remove(material)
         bpy.data.scenes.remove(temp_scene)
 
 
@@ -193,6 +204,8 @@ def main():
     parser = argparse.ArgumentParser(description="Export derived GLB/manifest from a saved Blender source")
     parser.add_argument("--output", required=True)
     parser.add_argument("--scope", choices=["full", "task"], default="full")
+    parser.add_argument("--color-mode",choices=["source-flat","zoning-flat","none"],default="source-flat",
+                        help="Simple source base colors with no textures/shader payload, or monochrome")
     parser.add_argument("--room-id")
     parser.add_argument("--global-id", dest="global_ids", action="append")
     parser.add_argument("--collection")
