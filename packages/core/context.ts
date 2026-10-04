@@ -1,8 +1,9 @@
 import { contextPacketSchema, type CameraView, type ContextHit, type ContextSelection } from '../protocol/context';
 import type { Entity, Manifest, SelectionEvent } from '../protocol/index';
+import {createSpatialContext,type LoadedSemantics} from './spatial-context';
 
 export function createContextPacket(manifest:Manifest, selection:SelectionEvent|ContextSelection, entities:ReadonlyMap<string,Entity>,
-  view:CameraView, hit:ContextHit|null){
+  view:CameraView, hit:ContextHit|null,semantics?:LoadedSemantics){
   if(view.frame_id!==manifest.coordinate_frame||(hit&&hit.frame_id!==manifest.coordinate_frame))
     throw new Error('Hit/view frame disagrees with proxy manifest');
   const blender=manifest.extensions?.['spatial_canvas.blender'] as {
@@ -42,6 +43,6 @@ export function createContextPacket(manifest:Manifest, selection:SelectionEvent|
       if(!entity)throw new Error('Unknown selected entity');
       return entity;
     }),
-    view:{kind:'camera3d',data:view},hit:resolvedHit,
+    view:{kind:'camera3d',data:view},hit:resolvedHit,spatial_context:createSpatialContext(manifest,resolvedHit,semantics),
   });
 }

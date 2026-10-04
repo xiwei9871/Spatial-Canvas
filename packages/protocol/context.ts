@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { authorityLevelSchema, entitySchema, resourceSchema, selectionSchema } from './index';
+import {spatialContextSchema} from './spaces';
 
 const id = z.string().min(1);
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -48,6 +49,7 @@ export const contextPacketSchema = z.object({
   // An open view kind permits future viewers. Validate the concrete camera payload when present.
   view:z.object({kind:id,data:z.record(z.string(),z.unknown())}),
   hit:contextHitSchema.nullable(),
+  spatial_context:spatialContextSchema.optional(),
 }).superRefine((packet,ctx)=>{
   const reject=(message:string)=>ctx.addIssue({code:'custom',message});
   if(packet.resource.design_id!==packet.selection.design_id ||
@@ -64,6 +66,30 @@ export const contextPacketSchema = z.object({
   if(packet.hit && !ids.includes(packet.hit.entity_id)) reject('Hit must identify a selected entity');
   if(packet.hit && packet.hit.entity_id!==packet.selection.primary_entity_id)reject('Hit must identify the primary entity');
   if(packet.hit && packet.view.kind==='camera3d' && packet.hit.frame_id!==packet.view.data.frame_id) reject('Hit/view frame mismatch');
+  if(packet.spatial_context&&packet.spatial_context.resolution!=='unavailable'&&!packet.hit)reject('Spatial resolution requires actual hit');
+  if(packet.spatial_context?.semantic_status&&packet.spatial_context.semantic_status.design_id!==packet.resource.design_id)reject('Spatial status design mismatch');
+  const spatial=packet.spatial_context;
+  const blender=packet.resource.extensions?.['spatial_canvas.blender'] as {source_coordinate_frame?:string;meters_per_scene_unit?:number;source_up_axis?:string}|undefined;
+  if(packet.hit?.source&&blender?.source_coordinate_frame){
+    const scale=blender.meters_per_scene_unit;
+    const scales:Record<string,number>={meter:1,millimeter:.001,centimeter:.01};
+    if(typeof scale!=='number'||!Number.isFinite(scale)||scale<=0||packet.hit.source.frame_id!==blender.source_coordinate_frame||
+      (blender.source_up_axis!==undefined&&blender.source_up_axis!=='Z'))reject('Invalid declared Blender source conversion');
+    else{
+      const [x,y,z]=packet.hit.xyz,expected=[x/scale,-z/scale,y/scale];
+      if(packet.hit.source.xyz.some((v,i)=>Math.abs(v-expected[i]!)>1e-7))reject('Source hit differs from declared Blender conversion');
+      if(packet.hit.source.unit!=='scene_unit'&&(!scales[packet.hit.source.unit]||Math.abs(scales[packet.hit.source.unit]!-scale)>1e-8))reject('Source hit unit and scale disagree');
+      if(packet.hit.normal&&packet.hit.source.normal){const n=packet.hit.normal,expectedNormal=[n[0],-n[2],n[1]];if(packet.hit.source.normal.some((v,i)=>Math.abs(v-expectedNormal[i]!)>1e-7))reject('Source normal differs from Blender conversion');}
+    }
+  }
+  if(spatial&&spatial.resolution!=='unavailable'&&packet.hit){
+    const sourcePoint=spatial.frame_id===packet.hit.frame_id?packet.hit:spatial.frame_id===packet.hit.source?.frame_id?packet.hit.source:undefined;
+    const scales:Record<string,number>={meter:1,millimeter:.001,centimeter:.01};
+    if(!sourcePoint||!spatial.point||!spatial.unit||!scales[spatial.unit]||!scales[sourcePoint.unit])reject('Spatial point/frame/unit do not correspond to hit');
+    else if(sourcePoint.xyz.some((v,i)=>Math.abs(v*scales[sourcePoint.unit]!-spatial.point![i]!*scales[spatial.unit!]!)>1e-7))reject('Spatial point differs from actual raycast hit');
+    if(spatial.frame_id===packet.hit.frame_id&&packet.view.kind==='camera3d'&&spatial.up_axis!==packet.view.data.up_axis)reject('Spatial axis differs from view');
+    if(spatial.frame_id===packet.hit.source?.frame_id&&(!blender?.source_coordinate_frame||spatial.up_axis!=='Z'))reject('Spatial source axis/conversion is not declared');
+  }
 });
 
 export type BindingRegistry=z.infer<typeof bindingRegistrySchema>;

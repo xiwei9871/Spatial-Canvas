@@ -1,6 +1,6 @@
 {
   "name": "spatial-canvas",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -19,9 +19,12 @@
     "test:adapter": "python3 -m unittest discover -s adapters/blender/tests -p test_contracts.py -v",
     "test:bindings": "python3 -m unittest discover -s adapters/blender/tests -p test_bindings.py -v",
     "context:validate": "tsx scripts/validate-frozen-context.ts",
+    "test:semantics": "python3 -m unittest discover -s adapters/semantics/tests -v",
+    "project:ingest": "tsx scripts/ingest-project.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
+    "polygon-clipping": "^0.15.7",
     "three": "^0.184.0",
     "zod": "^4.3.6"
   },

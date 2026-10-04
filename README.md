@@ -66,3 +66,9 @@ The browser verifies manifest/node consistency, not authoritative source content
 ## V0.3 frozen sources and context
 
 Frozen sources use an external binding registry and are never annotated or saved by the producer. See [Protocol V0.3](docs/protocol-v0.3.md), [frozen workflow](docs/frozen-workflow-v0.3.md) and [real R4 validation](docs/validation-v0.3.md). Editable sources retain in-source IDs. The Workspace exports a ContextPacket with stable selection, source locator/revision/SHA, entity metadata, current camera/viewport and a real pointer hit (or null).
+
+## V0.4 spaces and project ingestion
+
+Entities identify physical objects; spaces identify independently sourced regions. A continuous floor can resolve to different spaces at different hit points. Use **Import spatial semantics** to choose Space Registry and project descriptor JSON. The Workspace computes `READY`, `PARTIAL` or `BLOCKED_FOR_SPATIAL_CONTEXT`, exposes missing evidence/review/coverage diagnostics and includes the actual spatial result in copied/exported ContextPackets. No room context is inferred from an entity's name or `room_id`.
+
+See [V0.4 protocol and ingestion workflow](docs/protocol-v0.4.md) and [real acceptance evidence](docs/validation-v0.4.md). Native source inventory is read-only; unsupported IFC/FreeCAD representations require normalized boundary exports. No BIM authoring or general room-reconstruction suite is implemented.

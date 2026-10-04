@@ -25,6 +25,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 350px; height: 65vh;
 aside { border-left: 1px solid #cedad7; background: #fff; overflow-y: auto; }
 aside section { padding: 16px; border-bottom: 1px solid #e4eae7; }
 #resource { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+#semantic-readiness { font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+#semantic-diagnostics { max-height: 180px; overflow-y: auto; margin-top: 8px; }
+summary { cursor: pointer; font-size: 12px; margin-top: 10px; }
 input { width: 100%; border: 1px solid #bfd0c9; border-radius: 4px; padding: 7px; color: #263f3c; background: #fff; font: inherit; font-size: 12px; }
 #entities { display: flex; flex-direction: column; gap: 4px; margin-top: 9px; max-height: 160px; overflow-y: auto; }
 .entity { text-align: left; overflow-wrap: anywhere; }
