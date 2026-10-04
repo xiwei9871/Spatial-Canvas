@@ -60,3 +60,22 @@ V0.3 is read-only dogfood. Sidecar semantics require deliberate review, not auto
 ## Formal Issue #5 follow-up
 
 See [Issue #5 conformance](issue5-conformance.md) for the reviewed 12-object subset, primary selection, actual normals/projection/FOV, expected source ID/revision rejection and the independent packet-only Codex handoff. Original discovery/first-round captures above remain intact. The current complete gate uses representative/ outputs and reports 51 Vitest tests.
+
+## R4 visibility and ContextPacket usability follow-up
+
+User clicks identified two misplaced reference meshes:
+
+| Stable entity ID | Native object |
+| --- | --- |
+| ent_bb91e65504d84e888e57cc248cac6362 | FN_次主卧电视柜 |
+| ent_c62087b9c62a4aec8deab82da77888a3 | FN_电视柜（或者悬浮电视墙） |
+
+Both objects already belong to the hidden `05_HUMAN_DESIGN_GUIDE` collection in frozen R4. Their individual hide flags are false, but their collection is hidden for viewport and render, and `visible_get` is false. The exporter previously checked only object-level render visibility. It now respects collection render visibility through ancestors and current view-layer visibility, including exclusions and per-object viewport hiding. This corrects derived output without editing the source design.
+
+The new `task-output/v03-c-type/source-visible-zoning/` export retains stable IDs for 920 visible entities and excludes 58 source-invisible bindings from the previous 978-entity open-ceiling export. Both reported IDs are absent from the GLB and the loaded Workspace search. Ceiling omission and gray floors / beige furniture / white walls remain presentation choices. The original outputs are preserved. Source SHA, byte size and nanosecond mtime still match the recorded frozen baseline; manifest provenance and actual sidecar SHA also match.
+
+The new visibility regression failed before the correction and passed afterward; all 18 actual bpy tests passed. `npm run check` also passed lint, typecheck, 51 Vitest tests and build.
+
+The attached second-object ContextPacket is valid. Before replacing the proxy, both list selection and an actual viewport click of the first object also generated valid packets. The user's original download failure was not reproduced, and native browser download delivery remains unverified. Export now attaches its download anchor to the document and delays object-URL revocation; its status reports a download request rather than claiming file delivery. `Copy ContextPacket` offers the same packet directly, and a real sofa packet was read back from the browser clipboard with the expected schema, stable ID and native locator. List selection has no raycast hit; pointer selection supplies the actual hit.
+
+Local evidence: `visibility-audit/source-objects.log`, `test-red.log`, `test-green.log`, `first-object.context.json`, `first-object-pointer.context.json`, and `source-visible-zoning/visibility-validation.json`. These generated artifacts remain ignored.

@@ -214,6 +214,33 @@ class BlenderGates(unittest.TestCase):
         self.assertEqual(zoning_color(floor,wall)[0],ZONING_COLORS["floor"])
         self.assertEqual({obj.name:dict(obj.items()) for obj in common.eligible_objects()},before)
 
+    def test_proxy_visibility_honors_hidden_collection_ancestors_and_view_layer(self):
+        visible=bpy.data.objects["Sofa"]
+        hidden=bpy.data.collections.new("HiddenGuides")
+        bpy.context.scene.collection.children.link(hidden)
+        hidden.hide_render=True
+        child=bpy.data.collections.new("NestedGuides")
+        hidden.children.link(child)
+        old_guide=visible.copy()
+        old_guide.data=visible.data.copy()
+        old_guide.name="OldGuide"
+        child.objects.link(old_guide)
+        self.assertFalse(old_guide.hide_render)
+        self.assertNotIn(old_guide,common.eligible_objects())
+        hidden.hide_render=False
+        hidden.hide_viewport=True
+        self.assertNotIn(old_guide,common.eligible_objects())
+        hidden.hide_viewport=False
+        bpy.context.view_layer.update()
+        hidden_layer=bpy.context.view_layer.layer_collection.children["HiddenGuides"]
+        hidden_layer.exclude=True
+        self.assertNotIn(old_guide,common.eligible_objects())
+        hidden_layer.exclude=False
+        bpy.context.view_layer.update()
+        self.assertIn(old_guide,common.eligible_objects())
+        visible.hide_set(True)
+        self.assertNotIn(visible,common.eligible_objects())
+
     def test_non_unit_scene_scale_export_and_execution(self):
         common.set_scene_metadata(bpy.context.scene, design_id="design_test", source_resource_id="source_test",
                                   source_revision="rev-00007", source_unit_scale=.01)

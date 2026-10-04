@@ -21,7 +21,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -105,6 +105,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   el('count').textContent = String(manifest.entity_count);
   el<HTMLButtonElement>('reload').disabled = false;
   el<HTMLButtonElement>('download-context').disabled=false;
+  el<HTMLButtonElement>('copy-context').disabled=false;
   applySelection(event);
   status('Loaded ' + manifest.proxy_uri + ' — ' + manifest.entity_count + ' stable entities. Source: ' + manifest.source_resource);
 }
@@ -172,16 +173,29 @@ el('download-intent').addEventListener('click', () => {
   link.href = url; link.download = 'spatial-canvas.intent.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+function currentContext(){
+  if(!manifest||!proxy||!lastSelection)throw new Error('Load a proxy before exporting context.');
+  const packet=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit);
+  emit(packet);
+  return packet;
+}
+el('copy-context').addEventListener('click',async()=>{
+  try{
+    const packet=currentContext();
+    await navigator.clipboard.writeText(JSON.stringify(packet,null,2));
+    status('ContextPacket copied. Paste it into Codex to identify this object.');
+  }catch(error){status(error instanceof Error?error.message:String(error),true);}
+});
 el('download-context').addEventListener('click',()=>{
   if(!manifest||!proxy||!lastSelection)return;
   try{
-    const packet=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit);
-    emit(packet);
+    const packet=currentContext();
     const url=URL.createObjectURL(new Blob([JSON.stringify(packet,null,2)],{type:'application/json'}));
     const link=document.createElement('a');
-    link.href=url;link.download='spatial-canvas.context.json';link.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    status('ContextPacket exported with current source, stable identity, view and actual hit.');
+    link.href=url;link.download='spatial-canvas.context.json';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    status('ContextPacket generated; download requested. If no file appears, use Copy ContextPacket.');
   }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
 el('viewer').addEventListener('dragover', (event) => event.preventDefault());
