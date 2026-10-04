@@ -1,6 +1,6 @@
 {
   "name": "spatial-canvas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,6 +15,8 @@
     "test": "vitest run --root .",
     "schemas": "tsx scripts/generate-schemas.ts",
     "fixture": "tsx scripts/generate-fixture.ts",
+    "blender:e2e": "tsx scripts/blender-e2e.ts",
+    "test:adapter": "python3 -m unittest discover -s adapters/blender/tests -p test_contracts.py -v",
     "check": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

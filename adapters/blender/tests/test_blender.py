@@ -1,0 +1,252 @@
+"""Real bpy gates. Run: blender --background --factory-startup --python-exit-code 1 --python this_file."""
+from copy import deepcopy
+import json
+from pathlib import Path
+import struct
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import bpy
+from mathutils import Matrix, Quaternion, Vector
+import common
+from contracts import ProtocolError
+from export_proxy import export_proxy
+import export_proxy as producer
+from apply_intent import apply_intent, execute_saved_intent
+from types import SimpleNamespace
+
+
+class BlenderGates(unittest.TestCase):
+    def setUp(self):
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        self.work = tempfile.TemporaryDirectory()
+        self.source = str(Path(self.work.name) / "scene.blend")
+        common.set_scene_metadata(bpy.context.scene, design_id="design_test", source_resource_id="source_test", source_revision="rev-00007")
+        for name, gid, mutable, location in [("Sofa", "sofa", True, (-1.5, 0, .45)),
+                                            ("Wall", "wall", False, (0, 1, 1)), ("Table", "table", True, (0, 0, .3))]:
+            bpy.ops.mesh.primitive_cube_add(size=1, location=location)
+            obj = bpy.context.object
+            obj.name = name
+            for field, value in {"global_id": gid, "semantic_type": name.lower(), "room_id": "living",
+                                 "authority_level": "HUMAN_DESIGN_GUIDE", "mutable": mutable}.items():
+                obj[common.ENTITY_KEYS[field]] = value
+        bpy.ops.wm.save_as_mainfile(filepath=self.source)
+
+    def tearDown(self):
+        self.work.cleanup()
+
+    def args(self, **patches):
+        return SimpleNamespace(output=str(Path(self.work.name) / "artifacts"), scope="full",
+                               room_id=None, global_ids=None, collection=None, **patches)
+
+    def request(self):
+        return {
+            "schema": "spatial-canvas.intent.v1", "request_id": "req_test", "design_id": "design_test",
+            "resource_id": "proxy", "source_resource_id": "source_test", "source_revision": "rev-00007",
+            "source_sha256": common.file_sha256(self.source), "targets": [{"global_id": "sofa", "native_object_id": "Sofa"}],
+            "intent": "request_transform", "authority": "request_only",
+            "payload": {"translation": [.5, 0, 0], "space": "world", "unit": "meter", "coordinate_frame": "blender_proxy_world"},
+            "timestamp": "2026-10-04T06:00:00.000Z",
+        }
+
+    def saved(self):
+        bpy.ops.wm.save_as_mainfile(filepath=self.source)
+        return common.file_sha256(self.source)
+
+    def test_initialization_preserves_existing_revision_and_ids(self):
+        common.initialize_ids()
+        self.assertEqual(common.scene_metadata()["source_revision"], "rev-00007")
+        self.assertEqual(bpy.data.objects["Sofa"]["spatial_canvas_global_id"], "sofa")
+
+    def test_rename_preserves_global_id_and_updates_native_locator(self):
+        bpy.data.objects["Sofa"].name = "Renamed_Sofa"
+        self.saved()
+        export_proxy(self.args())
+        glb = (Path(self.work.name) / "artifacts/interaction_proxy.glb").read_bytes()
+        doc = json.loads(glb[20:20+struct.unpack_from("<I", glb, 12)[0]])
+        entity = next(node["extras"] for node in doc["nodes"] if node["extras"]["global_id"] == "sofa")
+        self.assertEqual(entity["native_object_id"], "Renamed_Sofa")
+        self.assertEqual(entity["global_id"], "sofa")
+
+    def test_initialize_new_source_persists_generated_identity(self):
+        for key in common.METADATA_KEYS.values():
+            del bpy.context.scene[key]
+        del bpy.data.objects["Sofa"]["spatial_canvas_global_id"]
+        common.initialize_ids()
+        first = bpy.data.objects["Sofa"]["spatial_canvas_global_id"]
+        self.saved()
+        bpy.ops.wm.open_mainfile(filepath=self.source)
+        common.initialize_ids()
+        self.assertEqual(bpy.data.objects["Sofa"]["spatial_canvas_global_id"], first)
+        self.assertTrue(common.scene_metadata()["design_id"])
+
+    def test_missing_and_duplicate_identity_rejected(self):
+        metadata = common.scene_metadata()
+        del bpy.data.objects["Sofa"]["spatial_canvas_global_id"]
+        with self.assertRaises(ProtocolError):
+            common.collect_entities(common.eligible_objects(), metadata)
+        bpy.data.objects["Sofa"]["spatial_canvas_global_id"] = "wall"
+        with self.assertRaises(ProtocolError):
+            common.collect_entities(common.eligible_objects(), metadata)
+
+    def test_source_metadata_types_and_units_validated(self):
+        bpy.context.scene["spatial_canvas_design_id"] = 4
+        with self.assertRaises(ProtocolError):
+            common.scene_metadata()
+        bpy.context.scene["spatial_canvas_design_id"] = "design_test"
+        bpy.context.scene.unit_settings.scale_length = .01
+        with self.assertRaises(ProtocolError):
+            common.scene_metadata()
+
+    def test_request_gates_are_all_or_nothing(self):
+        original = bpy.data.objects["Sofa"].matrix_world.copy()
+        original_hash = common.file_sha256(self.source)
+        for change in [{"source_revision": "rev-00001"}, {"design_id": "wrong"}, {"source_resource_id": "wrong"},
+                       {"source_sha256": "b"*64}, {"schema": "v2"},
+                       {"targets": [{"global_id": "missing", "native_object_id": "Sofa"}]},
+                       {"targets": [{"global_id": "sofa", "native_object_id": "wrong"}]},
+                       {"targets": [{"global_id": "sofa", "native_object_id": "Sofa"}, {"global_id": "wall", "native_object_id": "Wall"}]},
+                       {"payload": {**self.request()["payload"], "coordinate_frame": "wrong"}}]:
+            with self.subTest(change=change), self.assertRaises(ProtocolError):
+                apply_intent({**self.request(), **change}, self.source)
+            self.assertEqual(bpy.data.objects["Sofa"].matrix_world, original)
+            self.assertEqual(common.file_sha256(self.source), original_hash)
+            self.assertEqual(common.scene_metadata()["source_revision"], "rev-00007")
+
+    def test_duplicate_authoritative_mapping_rejected(self):
+        duplicate = bpy.data.objects["Sofa"].copy()
+        bpy.context.scene.collection.objects.link(duplicate)
+        duplicate.hide_render = True
+        self.saved()
+        with self.assertRaises(ProtocolError):
+            apply_intent(self.request(), self.source)
+
+    def test_world_translation_under_rotated_scaled_parent(self):
+        sofa = bpy.data.objects["Sofa"]
+        world = sofa.matrix_world.copy()
+        parent = bpy.data.objects.new("Group", None)
+        bpy.context.scene.collection.objects.link(parent)
+        parent.rotation_euler.z = 1.0
+        parent.scale = (2, 3, 1)
+        sofa.parent = parent
+        bpy.context.view_layer.update()
+        sofa.matrix_world = world
+        bpy.context.view_layer.update()
+        before = sofa.matrix_world.translation.copy()
+        self.saved()
+        result = apply_intent(self.request(), self.source)
+        bpy.context.view_layer.update()
+        self.assertLess((sofa.matrix_world.translation - before - Vector((.5, 0, 0))).length, 1e-5)
+        self.assertEqual(result["source_revision"], "rev-00008")
+        bpy.ops.wm.open_mainfile(filepath=self.source)
+        self.assertEqual(common.scene_metadata()["source_revision"], "rev-00008")
+
+    def test_export_evaluates_modifiers_drops_textures_and_preserves_source(self):
+        sofa = bpy.data.objects["Sofa"]
+        modifier = sofa.modifiers.new("Bevel", "BEVEL")
+        modifier.width = .1
+        material = bpy.data.materials.new("Source texture")
+        material.use_nodes = True
+        material.node_tree.nodes.new("ShaderNodeTexImage")
+        sofa.data.materials.append(material)
+        self.saved()
+        counts = (len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.materials), len(bpy.data.scenes))
+        original_hash = common.file_sha256(self.source)
+        export_proxy(self.args())
+        self.assertEqual(common.file_sha256(self.source), original_hash)
+        self.assertEqual((len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.materials), len(bpy.data.scenes)), counts)
+        self.assertEqual(sofa.modifiers[0].name, "Bevel")
+        data = (Path(self.work.name) / "artifacts/interaction_proxy.glb").read_bytes()
+        document = json.loads(data[20:20+struct.unpack_from("<I", data, 12)[0]])
+        self.assertFalse(document.get("images"))
+        self.assertFalse(document.get("extensionsUsed"))
+        self.assertFalse(document.get("textures"))
+        self.assertEqual({node["extras"]["global_id"] for node in document["nodes"]}, {"sofa", "wall", "table"})
+        mesh = document["meshes"][next(node["mesh"] for node in document["nodes"] if node["extras"]["global_id"] == "sofa")]
+        accessor = document["accessors"][mesh["primitives"][0]["attributes"]["POSITION"]]
+        self.assertGreater(accessor["count"], 24)
+
+    def test_non_unit_scene_scale_export_and_execution(self):
+        common.set_scene_metadata(bpy.context.scene, design_id="design_test", source_resource_id="source_test",
+                                  source_revision="rev-00007", source_unit_scale=.01)
+        self.saved()
+        export_proxy(self.args())
+        manifest = json.loads((Path(self.work.name) / "artifacts/interaction_proxy.manifest.json").read_text())
+        self.assertEqual(manifest["source_frame"]["unit"], "centimeter")
+        data = (Path(self.work.name) / "artifacts/interaction_proxy.glb").read_bytes()
+        document = json.loads(data[20:20+struct.unpack_from("<I", data, 12)[0]])
+        sofa = next(node for node in document["nodes"] if node["extras"]["global_id"] == "sofa")
+        self.assertAlmostEqual(sofa["translation"][0], -.015, places=5)
+        apply_intent(self.request(), self.source)
+        self.assertAlmostEqual(bpy.data.objects["Sofa"].matrix_world.translation.x, 48.5, places=4)
+
+    def test_save_failure_keeps_source_and_reverts_memory(self):
+        before = bpy.data.objects["Sofa"].matrix_world.copy()
+        original_hash = common.file_sha256(self.source)
+        with patch("apply_intent.atomic_save_source", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                apply_intent(self.request(), self.source)
+        self.assertEqual(common.file_sha256(self.source), original_hash)
+        self.assertEqual(common.scene_metadata()["source_revision"], "rev-00007")
+        self.assertEqual(bpy.data.objects["Sofa"].matrix_world, before)
+
+    def test_cli_transaction_reloads_latest_disk_geometry(self):
+        sofa = bpy.data.objects["Sofa"]
+        old = sofa.data.vertices[0].co.x
+        sofa.data.vertices[0].co.x = 99
+        self.saved()
+        # Simulate a scene loaded before another writer saved the current source bytes.
+        sofa.data.vertices[0].co.x = old
+        intent = self.request()
+        result = execute_saved_intent(intent, self.source)
+        self.assertEqual(result["status"], "applied")
+        bpy.ops.wm.open_mainfile(filepath=self.source)
+        self.assertEqual(bpy.data.objects["Sofa"].data.vertices[0].co.x, 99)
+
+    def test_initialization_cli_reloads_latest_disk_geometry(self):
+        sofa = bpy.data.objects["Sofa"]
+        old = sofa.data.vertices[0].co.x
+        sofa.data.vertices[0].co.x = 99
+        self.saved()
+        sofa.data.vertices[0].co.x = old
+        with patch.object(sys, "argv", ["export_proxy.py", "--", "--initialize-ids", "--output", self.args().output]):
+            producer.main()
+        bpy.ops.wm.open_mainfile(filepath=self.source)
+        self.assertEqual(bpy.data.objects["Sofa"].data.vertices[0].co.x, 99)
+
+    def test_sheared_parent_world_geometry_survives_export(self):
+        sofa = bpy.data.objects["Sofa"]
+        parent = bpy.data.objects.new("ScaledParent", None)
+        bpy.context.scene.collection.objects.link(parent)
+        parent.scale = (2, 1, 1)
+        sofa.parent = parent
+        sofa.rotation_euler.z = .78539816339
+        bpy.context.view_layer.update()
+        expected = [common.blender_translation_to_proxy(sofa.matrix_world @ vertex.co, common.scene_metadata()) for vertex in sofa.data.vertices]
+        self.saved()
+        export_proxy(self.args())
+        glb = (Path(self.work.name) / "artifacts/interaction_proxy.glb").read_bytes()
+        length = struct.unpack_from("<I", glb, 12)[0]
+        doc = json.loads(glb[20:20+length])
+        node = next(node for node in doc["nodes"] if node["extras"]["global_id"] == "sofa")
+        mesh = doc["meshes"][node["mesh"]]
+        accessor = doc["accessors"][mesh["primitives"][0]["attributes"]["POSITION"]]
+        view = doc["bufferViews"][accessor["bufferView"]]
+        offset = 28 + length + view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+        rotation = node.get("rotation", [0, 0, 0, 1])
+        transform = Matrix.LocRotScale(Vector(node.get("translation", [0, 0, 0])),
+                                      Quaternion((rotation[3], *rotation[:3])), Vector(node.get("scale", [1, 1, 1])))
+        points = [transform @ Vector(struct.unpack_from("<3f", glb, offset + index * view.get("byteStride", 12))) for index in range(accessor["count"])]
+        for axis in range(3):
+            self.assertAlmostEqual(min(p[axis] for p in points), min(p[axis] for p in expected), places=4)
+            self.assertAlmostEqual(max(p[axis] for p in points), max(p[axis] for p in expected), places=4)
+
+
+if __name__ == "__main__":
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(BlenderGates)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    if not result.wasSuccessful():
+        raise SystemExit(1)

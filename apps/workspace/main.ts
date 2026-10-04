@@ -1,11 +1,11 @@
 import './style.css';
 import { createIntent, reconcileSelection, select } from '../../packages/core/index';
-import { manifestSchema, type Manifest, type ProtocolEvent, type SelectionEvent } from '../../packages/protocol/index';
+import { manifestSchema, type Intent, type Manifest, type ProtocolEvent, type SelectionEvent } from '../../packages/protocol/index';
 import { loadProxy, ProxyViewer, type LoadedProxy } from '../../packages/viewer/index';
 import { disposeScene, spatialMetadata } from '../../packages/viewer/scene';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header><div><h1>Spatial Canvas <small>V0.1</small></h1><p>Point to stable entities. Send intent to the source.</p></div>
+  <header><div><h1>Spatial Canvas <small>V0.2</small></h1><p>Point to stable entities. Send intent to the source.</p></div>
     <div class="toolbar"><button id="example">Load full example</button><button id="task">Load task example</button>
     <label class="file-button">Open local export<input id="files" type="file" accept=".json,.glb" multiple></label>
     <button id="reload" disabled>Reload proxy</button></div></header>
@@ -19,7 +19,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><button id="download" disabled>Download event log</button></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -29,8 +29,13 @@ let selected: string[] = [];
 const events: ProtocolEvent[] = [];
 let lastExample: 'interaction_proxy' | 'task_proxy' | undefined;
 let loadingGeneration = 0;
+let latestIntent: Intent | undefined;
 
 function emit(event: ProtocolEvent) {
+  if (event.schema === 'spatial-canvas.intent.v1') {
+    latestIntent = event;
+    el<HTMLButtonElement>('download-intent').disabled = false;
+  }
   events.push(event);
   if (events.length > 100) events.shift();
   el('event-json').textContent = JSON.stringify(event, null, 2);
@@ -83,6 +88,8 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   manifest = nextManifest;
   proxy = nextProxy;
   lastExample = example;
+  latestIntent = undefined;
+  el<HTMLButtonElement>('download-intent').disabled = true;
   viewer.setProxy(nextProxy);
   el('resource').textContent = [manifest.resource_id, manifest.scope, 'derived', manifest.source_revision].join(' · ');
   el('count').textContent = String(manifest.entity_count);
@@ -145,6 +152,13 @@ el('download').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(events, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url; link.download = 'spatial-canvas.events.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+el('download-intent').addEventListener('click', () => {
+  if (!latestIntent) return;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(latestIntent, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url; link.download = 'spatial-canvas.intent.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 el('viewer').addEventListener('dragover', (event) => event.preventDefault());

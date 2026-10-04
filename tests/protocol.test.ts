@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { entitySchema, intentSchema, manifestSchema, resourceSchema, selectionSchema } from '../packages/protocol/index';
+import { entitySchema, executionResultSchema, intentSchema, manifestSchema, resourceSchema, selectionSchema } from '../packages/protocol/index';
 
-import { entity, intent, manifest, selection } from './data';
+import { entity, executionResult, intent, manifest, selection } from './data';
 
 describe('protocol contracts', () => {
   it('accepts one contract for full and task proxies', () => {
@@ -38,5 +38,15 @@ describe('protocol contracts', () => {
     expect(intentSchema.safeParse({ ...intent, targets: [] }).success).toBe(false);
     expect(intentSchema.safeParse({ ...intent, targets: [intent.targets[0], intent.targets[0]] }).success).toBe(false);
     expect(intentSchema.safeParse({ ...intent, payload: { ...intent.payload, translation: [NaN, 0, 0] } }).success).toBe(false);
+  });
+  it('validates applied and rejected execution results as a separate contract', () => {
+    expect(executionResultSchema.safeParse(executionResult).success).toBe(true);
+    expect(executionResultSchema.safeParse({ ...executionResult, status: 'rejected', source_revision: executionResult.previous_source_revision, error: { code: 'stale_revision', message: 'stale' } }).success).toBe(true);
+    expect(executionResultSchema.safeParse({ ...executionResult, status: 'rejected', error: { code: 'x', message: 'x' } }).success).toBe(false);
+    expect(executionResultSchema.safeParse({ ...executionResult, status: 'error', request_id: null, error: { code: 'save_failed', message: 'disk full' } }).success).toBe(true);
+    expect(executionResultSchema.safeParse({ ...executionResult, status: 'rejected' }).success).toBe(false);
+    expect(executionResultSchema.safeParse({ ...executionResult, status: 'applied', error: { code: 'x', message: 'x' } }).success).toBe(false);
+    expect(executionResultSchema.safeParse({ ...executionResult, previous_source_revision: executionResult.source_revision }).success).toBe(false);
+    expect(executionResultSchema.safeParse({ ...executionResult, targets: ['ent_sofa', 'ent_sofa'] }).success).toBe(false);
   });
 });

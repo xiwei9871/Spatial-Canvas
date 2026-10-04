@@ -2,7 +2,7 @@
 
 Spatial Canvas is a local-first interaction layer that lets humans and AI point to, select, annotate, and operate on entities across 3D, CAD, images, web pages, and other project artifacts without making the interaction representation authoritative.
 
-V0.1 implements the 3D selection → stable identity → machine-readable request loop in [Issue #1](https://github.com/xiwei9871/Spatial-Canvas/issues/1). Annotation and additional viewers are future work.
+V0.1 implements the 3D selection → stable identity → machine-readable request loop in [Issue #1](https://github.com/xiwei9871/Spatial-Canvas/issues/1). V0.2 adds the offline Blender producer/adapter loop in [Issue #3](https://github.com/xiwei9871/Spatial-Canvas/issues/3): a persistent .blend source can export a proxy, receive a validated request-only intent, bump revision after an authoritative transform, and re-export. Annotation, live sync and additional viewers remain future work.
 
 ## Quick start
 
@@ -36,7 +36,7 @@ authoritative tool/source → offline producer → derived GLB + manifest
 | `packages/core` | Selection transitions, reload reconciliation, revision-bound requests |
 | `packages/viewer` | Three.js loading, raycast mapping, bounds, highlight and controls |
 | `apps/workspace` | Local import, inspector, request form, event output |
-| `adapters/blender` | Offline exporter contract; no live bridge |
+| `adapters/blender` | Offline Blender producer/adapter and atomic source execution; no live bridge |
 | `examples/living` | Original synthetic source and reproducible full/task fixtures |
 
 Read [Protocol V0.1](docs/protocol-v0.1.md) before building producers/consumers. Source tool coordinates are separate from glTF meter/Y-up coordinates. Requests refer to the proxy world frame; adapters own conversion.
@@ -54,6 +54,8 @@ Runs lint, typecheck, Vitest, and build. `npm run schemas` regenerates contracts
 Orbit/pan/zoom, pointer selection, multi-selection, highlight, search, frame selection, world matrix/bounds inspector, local paired-file import, reload, and translation intent generation. Every selectable mesh resolves through node extras or its closest identified ancestor. Names never provide identity. Browser actions neither write source files nor export an edited GLB. `mutable` is a source policy hint, not permission granted by the UI.
 
 Blender live WebSocket bridge, bidirectional sync, collaboration, cloud storage/auth, databases, UE/FreeCAD integrations, AI provider SDKs, accurate materials, and large-file streaming are outside V0.1. Proxies must be self-contained, have one active scene, and have no textures/glTF extensions. Future versions may expand this profile.
+
+With Blender 5.2.1 installed, run npm run blender:e2e for the V0.2 gate. See [the workflow](docs/blender-workflow-v0.2.md) and [real acceptance evidence](docs/validation-v0.2.md). It creates a temporary .blend, exports a full proxy, applies a +0.50m proxy-world X intent through adapters/blender/apply_intent.py, verifies rev-00001 -> rev-00002, rejects stale replay and immutable wall targets, then re-exports and validates stable IDs. See docs/blender-workflow-v0.2.md.
 
 ## Artifact policy
 
