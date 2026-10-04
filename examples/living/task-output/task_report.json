@@ -1,0 +1,13 @@
+{
+  "schema": "spatial-canvas.task-report.v1",
+  "status": "exported",
+  "source_resource_id": "src_living_demo",
+  "source_revision": "demo-r1",
+  "artifacts": [
+    "artifacts/interaction_proxy.glb",
+    "artifacts/interaction_proxy.manifest.json",
+    "artifacts/task_proxy.glb",
+    "artifacts/task_proxy.manifest.json",
+    "artifacts/preview.png"
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "spatial-canvas.intent.v1"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "targets": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "global_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "native_object_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "global_id",
+          "native_object_id"
+        ]
+      }
+    },
+    "intent": {
+      "type": "string",
+      "const": "request_transform"
+    },
+    "authority": {
+      "type": "string",
+      "const": "request_only"
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "translation": {
+          "type": "array",
+          "items": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "additionalItems": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "space": {
+          "type": "string",
+          "const": "world"
+        },
+        "coordinate_frame": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "const": "meter"
+        }
+      },
+      "required": [
+        "translation",
+        "space",
+        "coordinate_frame",
+        "unit"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "schema",
+    "request_id",
+    "design_id",
+    "resource_id",
+    "source_resource_id",
+    "source_revision",
+    "source_sha256",
+    "targets",
+    "intent",
+    "authority",
+    "payload",
+    "timestamp"
+  ],
+  "$id": "urn:spatial-canvas:intent:v1"
+}
