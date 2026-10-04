@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "design_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "global_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "native_object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "semantic_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "room_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority_level": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mutable": {
+      "type": "boolean"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "design_id",
+    "global_id",
+    "native_object_id",
+    "semantic_type",
+    "room_id",
+    "source_resource_id",
+    "source_revision"
+  ],
+  "$id": "urn:spatial-canvas:entity:v1"
+}

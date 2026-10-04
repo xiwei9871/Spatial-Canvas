@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.DS_Store
+.env*
+!.env.example
+task-output/
+artifacts/
+*.blend
+*.blend1
+*.glb
+!examples/living/task-output/
+!examples/living/task-output/**
+!examples/living/task-output/artifacts/*.glb
+!examples/living/task-output/artifacts/
+test-results/
+playwright-report/

@@ -1,0 +1,11 @@
+{
+  "design_id": "design_living_demo",
+  "source_resource_id": "src_living_demo",
+  "source_revision": "demo-r1",
+  "objects": [
+    { "global_id": "ent_sofa_001", "native_object_id": "LIVING_SOFA", "semantic_type": "sofa", "position": [-1.5, 0.45, 0], "size": [1.8, 0.9, 0.8], "color": [0.22, 0.42, 0.48], "mutable": true },
+    { "global_id": "ent_table_001", "native_object_id": "LIVING_TABLE", "semantic_type": "table", "position": [0, 0.3, 0.4], "size": [0.9, 0.6, 0.7], "color": [0.64, 0.43, 0.23], "mutable": true },
+    { "global_id": "ent_chair_001", "native_object_id": "LIVING_CHAIR", "semantic_type": "chair", "position": [1.45, 0.5, 0], "size": [0.75, 1, 0.75], "color": [0.58, 0.32, 0.24], "mutable": true },
+    { "global_id": "ent_wall_001", "native_object_id": "LIVING_WALL", "semantic_type": "wall", "position": [0, 0.85, -1.5], "size": [4.8, 1.7, 0.15], "color": [0.72, 0.73, 0.69], "mutable": false }
+  ]
+}

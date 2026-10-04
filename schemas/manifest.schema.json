@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "const": "interaction_proxy"
+    },
+    "format": {
+      "type": "string",
+      "const": "glb"
+    },
+    "authority": {
+      "type": "string",
+      "const": "derived"
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "schema": {
+      "type": "string",
+      "const": "interaction-proxy-v1"
+    },
+    "proxy_uri": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9_-]+\\/)*[A-Za-z0-9_.-]+\\.glb$"
+    },
+    "source_resource_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_resource": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "coordinate_frame": {
+      "type": "string",
+      "minLength": 1
+    },
+    "unit": {
+      "type": "string",
+      "const": "meter"
+    },
+    "up_axis": {
+      "type": "string",
+      "const": "Y"
+    },
+    "source_frame": {
+      "type": "object",
+      "properties": {
+        "coordinate_frame": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "meter",
+            "millimeter",
+            "centimeter"
+          ]
+        },
+        "up_axis": {
+          "type": "string",
+          "enum": [
+            "X",
+            "Y",
+            "Z"
+          ]
+        }
+      },
+      "required": [
+        "coordinate_frame",
+        "unit",
+        "up_axis"
+      ]
+    },
+    "entity_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "full",
+        "task"
+      ]
+    }
+  },
+  "required": [
+    "resource_id",
+    "design_id",
+    "type",
+    "format",
+    "authority",
+    "schema",
+    "proxy_uri",
+    "source_resource_id",
+    "source_resource",
+    "source_sha256",
+    "source_revision",
+    "coordinate_frame",
+    "unit",
+    "up_axis",
+    "entity_count",
+    "scope"
+  ],
+  "$id": "urn:spatial-canvas:manifest:v1"
+}

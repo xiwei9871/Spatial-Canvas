@@ -1,0 +1,18 @@
+{
+  "resource_id": "res_living_full",
+  "design_id": "design_living_demo",
+  "type": "interaction_proxy",
+  "format": "glb",
+  "authority": "derived",
+  "schema": "interaction-proxy-v1",
+  "proxy_uri": "interaction_proxy.glb",
+  "source_resource_id": "src_living_demo",
+  "source_resource": "living.source.json",
+  "source_sha256": "127b0ff6ced68cd347ac1490efd7bb9cfb6679c804e1b6df931b913edde2bce4",
+  "source_revision": "demo-r1",
+  "coordinate_frame": "living_proxy_world",
+  "unit": "meter",
+  "up_axis": "Y",
+  "entity_count": 4,
+  "scope": "full"
+}
