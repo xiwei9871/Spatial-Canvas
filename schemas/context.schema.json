@@ -1,0 +1,361 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "spatial-canvas.context.v1"
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "selection": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "spatial-canvas.selection.v1"
+        },
+        "design_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "add",
+            "remove",
+            "clear"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "pointer",
+            "list",
+            "keyboard",
+            "reload"
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "schema",
+        "design_id",
+        "resource_id",
+        "source_revision",
+        "entity_ids",
+        "mode",
+        "source",
+        "timestamp"
+      ]
+    },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "design_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "derived",
+            "authoritative"
+          ]
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "resource_id",
+        "design_id",
+        "type",
+        "format",
+        "authority"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "editable",
+            "frozen"
+          ]
+        },
+        "bindings": {
+          "type": "object",
+          "properties": {
+            "registry_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "registry_revision": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "locator": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "registry_id",
+            "registry_revision",
+            "sha256",
+            "locator"
+          ]
+        }
+      },
+      "required": [
+        "resource_id",
+        "revision",
+        "sha256",
+        "locator",
+        "authority"
+      ]
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "design_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "global_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "native_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "semantic_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "room_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_resource_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority_level": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mutable": {
+            "type": "boolean"
+          },
+          "extensions": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "design_id",
+          "global_id",
+          "native_object_id",
+          "semantic_type",
+          "room_id",
+          "source_resource_id",
+          "source_revision"
+        ]
+      }
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "kind",
+        "data"
+      ]
+    },
+    "hit": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "entity_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "xyz": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "additionalItems": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "frame_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "unit": {
+              "type": "string",
+              "const": "meter"
+            },
+            "source": {
+              "type": "object",
+              "properties": {
+                "xyz": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "additionalItems": false,
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "frame_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "xyz",
+                "frame_id",
+                "unit"
+              ]
+            }
+          },
+          "required": [
+            "entity_id",
+            "xyz",
+            "frame_id",
+            "unit"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "packet_id",
+    "timestamp",
+    "selection",
+    "resource",
+    "source",
+    "entities",
+    "view",
+    "hit"
+  ],
+  "$id": "urn:spatial-canvas:context:v1"
+}

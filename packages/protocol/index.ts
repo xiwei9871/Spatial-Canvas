@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ContextPacket } from './context';
 
 const id = z.string().min(1);
 const revision = z.string().min(1);
@@ -68,5 +69,5 @@ export type Manifest = z.infer<typeof manifestSchema>;
 export type Entity = z.infer<typeof entitySchema>;
 export type SelectionEvent = z.infer<typeof selectionSchema>;
 export type Intent = z.infer<typeof intentSchema>;
-export type ProtocolEvent = SelectionEvent | Intent;
+export type ProtocolEvent = SelectionEvent | Intent | ContextPacket;
 export type ExecutionResult = z.infer<typeof executionResultSchema>;

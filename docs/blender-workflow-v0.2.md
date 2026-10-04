@@ -10,7 +10,7 @@ To initialize a source deliberately:
 
 ~~~sh
 blender --background --factory-startup source.blend --python-exit-code 1 --python adapters/blender/export_proxy.py -- \
-  --output task-output/artifacts --scope full --initialize-ids
+  --output task-output/artifacts --scope full --initialize-ids --editable-source
 ~~~
 
 This writes initialized IDs and metadata into the source before exporting. Ordinary export never mutates it.

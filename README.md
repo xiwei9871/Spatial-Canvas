@@ -62,3 +62,7 @@ With Blender 5.2.1 installed, run npm run blender:e2e for the V0.2 gate. See [th
 Working `task-output/`, `artifacts/`, `.blend`, and `.glb` exports are ignored. Keep large sources and working exports local or in an artifact store. Small authored fixtures under `examples/living/task-output` are allowlisted; see [provenance](examples/living/README.md).
 
 The browser verifies manifest/node consistency, not authoritative source contents, which it does not load. An adapter must verify revision/SHA-256 against its actual source before acting and apply its own authority policy.
+
+## V0.3 frozen sources and context
+
+Frozen sources use an external binding registry and are never annotated or saved by the producer. See [Protocol V0.3](docs/protocol-v0.3.md), [frozen workflow](docs/frozen-workflow-v0.3.md) and [real R4 validation](docs/validation-v0.3.md). Editable sources retain in-source IDs. The Workspace exports a ContextPacket with stable selection, source locator/revision/SHA, entity metadata, current camera/viewport and a real pointer hit (or null).

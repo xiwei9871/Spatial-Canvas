@@ -3,6 +3,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { expect, it } from 'vitest';
 import { executionResult, intent, manifest, selection } from './data';
+import {registry,packet} from './context-data';
 
 it('validates portable JSON Schema contracts and their rejection cases', async () => {
   const ajv = new Ajv({ strict: false });
@@ -34,4 +35,14 @@ it('validates portable applied/rejected/error result shapes and target uniquenes
     source_resource_id: null, previous_source_revision: null, source_revision: null,
     error: { code: 'io', message: 'read failed' } })).toBe(true);
   expect(validate({ ...executionResult, status: 'error' })).toBe(false);
+});
+it('validates sidecar/context/camera portable shapes alongside semantic runtime checks',async()=>{
+  const ajv=new Ajv({strict:false});
+  addFormats(ajv);
+  for(const [name,value] of Object.entries({bindings:registry,context:packet,'camera-view':packet.view.data})){
+    const schema=JSON.parse(await readFile('schemas/'+name+'.schema.json','utf8'));
+    const validate=ajv.compile(schema);
+    expect(validate(value),JSON.stringify(validate.errors)).toBe(true);
+    if(name!=='camera-view')expect(validate({...value,schema:'unsupported'})).toBe(false);
+  }
 });

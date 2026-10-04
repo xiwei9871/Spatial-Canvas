@@ -123,7 +123,7 @@ def initialize_ids(scene=None, *, design_id=None, source_resource_id=None, sourc
         if obj.get(ENTITY_KEYS["global_id"]) is None:
             obj[ENTITY_KEYS["global_id"]] = "ent_" + uuid.uuid4().hex
             changed.append(obj.name)
-        for field, value in {"semantic_type": "object", "room_id": "unassigned", "authority_level": "DESIGN_GUIDE"}.items():
+        for field, value in {"semantic_type": "object", "room_id": "unassigned", "authority_level": "HUMAN_DESIGN_GUIDE"}.items():
             if obj.get(ENTITY_KEYS[field]) is None:
                 obj[ENTITY_KEYS[field]] = value
     if changed and previous:
