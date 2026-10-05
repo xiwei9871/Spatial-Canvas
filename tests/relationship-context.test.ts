@@ -1,0 +1,11 @@
+import {expect,it} from 'vitest';
+import {relationshipGraphSchema} from '../packages/protocol/relationships';
+import {compactNeighborhood} from '../packages/core/relationships';
+import {relationshipContextSchema} from '../packages/protocol/relationship-context';
+import {relationshipStatus} from '../packages/core/relationship-status';
+import {graph} from './relationship-data';
+function context(){const g=relationshipGraphSchema.parse(graph);return {...compactNeighborhood(g,'bottom'),primary_space_id:null,design_id:g.design_id,status:'available',graph_id:g.graph_id,graph_revision:g.revision,registry:{sha256:'a'.repeat(64),locator:'graph.json'},sources:g.sources,readiness:relationshipStatus(g),diagnostics:[]};}
+it('preserves direct vs group vs ancestor embedding ownership',()=>{const c=relationshipContextSchema.parse(context());expect(c.edges.find(e=>e.type==='connected_to')?.verification.state).toBe('verified');expect(c.edges.find(e=>e.type==='embedded_in')?.from).toBe('sink');});
+it('rejects disconnected edges and nodes in a compact neighborhood',()=>{const c=context();const g=relationshipGraphSchema.parse(graph);c.edges.push(g.edges.find(e=>e.edge_id==='e5')!);c.nodes.push(...g.nodes.filter(n=>['door','spaceA','spaceB'].includes(n.node_id)));expect(relationshipContextSchema.safeParse(c).success).toBe(false);});
+it('retains ancestor membership proof before truncating many direct edges',()=>{const g=relationshipGraphSchema.parse(graph);g.edges=[g.edges[3]!,...g.edges.filter(e=>e.edge_id!=='e4'&&e.edge_id!=='e3'),g.edges[2]!];for(let i=0;i<60;i++){g.nodes.push({node_id:'n'+i,kind:'entity',resource_id:'model',native_id:'N'+i});g.edges.splice(1,0,{...g.edges[1]!,edge_id:'contact'+i,from:'bottom',to:'n'+i,type:'connected_to'});}const n=compactNeighborhood(g,'bottom');expect(n.truncated).toBe(true);expect(n.edges.some(e=>e.edge_id==='e3')).toBe(true);});
+it('does not cut n-ary endpoint sets and reports node/ancestor truncation',()=>{const g=relationshipGraphSchema.parse(graph);const e={...g.edges[4]!};e.endpoints=Array.from({length:201},(_,i)=>'space_'+i);e.to=e.endpoints[0]!;g.nodes.push(...e.endpoints.map(id=>({node_id:id,kind:'space' as const,resource_id:'model'})));g.edges=[e];const n=compactNeighborhood(g,'door');expect(n.truncated).toBe(true);expect(n.edges).toHaveLength(0);expect(n.nodes.length).toBeLessThanOrEqual(200);});

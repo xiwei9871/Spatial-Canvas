@@ -1,8 +1,14 @@
 import {projectSchema,spaceRegistrySchema,semanticStatusSchema,type Project,type SpaceRegistry,type SemanticStatus} from '../protocol/spaces';
 import {regionOverlap,uncoveredVolume} from './regions';
+import {relationshipStatus,blockedRelationshipStatus} from './relationship-status';
+import {relationshipGraphSchema,type RelationshipGraph} from '../protocol/relationships';
+import {graphRegistryErrors} from './relationship-integrity';
 
-export function ingestProject(project:Project,registry?:SpaceRegistry):SemanticStatus{
+export function ingestProject(project:Project,registry?:SpaceRegistry,graph?:RelationshipGraph):SemanticStatus{
   const p=projectSchema.parse(project);
+  const parsedGraph=graph?relationshipGraphSchema.safeParse(graph):undefined;
+  const graphMismatch=graph&&(graph.design_id!==p.design_id||!parsedGraph?.success||graph.sources.some(s=>{const actual=p.sources.find(a=>a.resource_id===s.resource_id);return actual&&(actual.revision!==s.revision||actual.sha256!==s.sha256);})||!graph.nodes.some(n=>n.kind==='entity'&&p.sources.some(s=>s.resource_id===n.resource_id))||graphRegistryErrors(graph,registry).length>0);
+  const graphReadiness=graphMismatch?blockedRelationshipStatus('Relationship graph schema/design/project source revision/SHA mismatch. Supply compatible reviewed graph.'):relationshipStatus(graph,{required:['component_hierarchy','physical_connectivity','space_adjacency','transition_graph']});
   const diagnostics:SemanticStatus['diagnostics']=[];
   const add=(code:string,message:string,action:string)=>diagnostics.push({code,message,action});
   const covered_levels:string[]=[],uncovered_levels:string[]=[];
@@ -39,6 +45,7 @@ export function ingestProject(project:Project,registry?:SpaceRegistry):SemanticS
     else covered_levels.push(level.level_id);
   }
   return semanticStatusSchema.parse({schema:'spatial-canvas.semantic-status.v1',project_id:p.project_id,design_id:p.design_id,
+    relationship_status:graphReadiness,
     status:!usable?'BLOCKED_FOR_SPATIAL_CONTEXT':diagnostics.length?'PARTIAL':'READY',sources:p.sources,
     known_levels:p.levels.map(l=>l.level_id),coverage:{covered_levels,uncovered_levels,uncovered_volume},diagnostics,
     registry_id:usable?.registry_id??null,registry_revision:usable?.registry_revision??null});

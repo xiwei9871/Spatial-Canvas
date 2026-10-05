@@ -1,0 +1,9 @@
+Object identity and room context do not establish how parts connect. V0.5 adds a source/revision/SHA-linked typed Relationship Graph with independent membership, direct connectivity, embedding, spatial adjacency and complete n-ary transitions. Queries and compact ContextPacket neighborhoods preserve original ownership and verified/candidate/rejected states; capability readiness exposes specific missing evidence rather than claiming global completeness.
+
+Real frozen R4 clicks captured sink, door, STEP_1 and wall relationships. Sink packets distinguish four basin-wall direct connections, faucet group-only membership and ancestor sink embedding in the south run, with no plumbing claims. Door/stair transitions and wall adjacency remain candidates where region/boundary approval is missing. Three independent packet-only agents preserved these distinctions without scene scans. Source .blend SHA/bytes size/mtime and frozen delivery manifest remain unchanged.
+
+Validation: lint/typecheck/build, 109 Vitest tests, 13 Python and 19 actual bpy tests, all 18 schemas reproduced; includes all predecessor gates, a non-C-Type fixture, graph integrity/query/readiness/candidate tests, actual read-only bpy evidence regression, source-byte/graph-neighborhood validation of four pointer captures, candidate discovery and immutable-new-path review workflow, schema reproduction and independent code review. See docs/validation-v0.5.md for final evidence/counts and limitations.
+
+No graph backend/editor, topology/plumbing solver, source mutation, live sync, WebSocket or cloud/provider integration. Native IFC/FreeCAD relationships use normalized imports; actual new native extraction is limited to read-only Blender hierarchy/bounds. Production artifacts stay ignored/local. Do not merge automatically.
+
+Closes #9

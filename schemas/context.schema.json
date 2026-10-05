@@ -648,6 +648,122 @@
         "semantic_status": {
           "type": "object",
           "properties": {
+            "relationship_status": {
+              "type": "object",
+              "properties": {
+                "schema": {
+                  "type": "string",
+                  "const": "spatial-canvas.relationship-status.v1"
+                },
+                "component_hierarchy": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "READY",
+                        "PARTIAL",
+                        "BLOCKED",
+                        "NOT_REQUESTED"
+                      ]
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "diagnostics"
+                  ]
+                },
+                "physical_connectivity": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "READY",
+                        "PARTIAL",
+                        "BLOCKED",
+                        "NOT_REQUESTED"
+                      ]
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "diagnostics"
+                  ]
+                },
+                "space_adjacency": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "READY",
+                        "PARTIAL",
+                        "BLOCKED",
+                        "NOT_REQUESTED"
+                      ]
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "diagnostics"
+                  ]
+                },
+                "transition_graph": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "READY",
+                        "PARTIAL",
+                        "BLOCKED",
+                        "NOT_REQUESTED"
+                      ]
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "diagnostics"
+                  ]
+                }
+              },
+              "required": [
+                "schema",
+                "component_hierarchy",
+                "physical_connectivity",
+                "space_adjacency",
+                "transition_graph"
+              ]
+            },
             "schema": {
               "type": "string",
               "const": "spatial-canvas.semantic-status.v1"
@@ -829,6 +945,484 @@
         "readiness",
         "diagnostics",
         "registry"
+      ]
+    },
+    "relationships": {
+      "type": "object",
+      "properties": {
+        "subject_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primary_space_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "design_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "graph_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "graph_revision": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nodes": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "node_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entity",
+                  "space",
+                  "level",
+                  "component_group"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "resource_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "native_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "space_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "level_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "node_id",
+              "kind",
+              "resource_id"
+            ]
+          }
+        },
+        "edges": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "edge_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "from": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "part_of",
+                  "contains",
+                  "connected_to",
+                  "adjacent_to",
+                  "embedded_in",
+                  "supports",
+                  "opens_to",
+                  "accesses",
+                  "transition_between",
+                  "same_component_group"
+                ]
+              },
+              "endpoints": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "verification": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "const": "verified"
+                      },
+                      "reviewer": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "timestamp": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      "note": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "reviewer",
+                      "timestamp",
+                      "note"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "const": "candidate"
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "const": "rejected"
+                      },
+                      "reviewer": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "timestamp": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      "note": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "reviewer",
+                      "timestamp",
+                      "note"
+                    ]
+                  }
+                ]
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "imported",
+                      "user_authored",
+                      "derived_from_source_hierarchy",
+                      "derived_from_cad",
+                      "derived_from_freecad",
+                      "derived_from_ifc",
+                      "inferred_from_geometry_contact",
+                      "inferred_from_spatial_adjacency",
+                      "inferred_from_naming"
+                    ]
+                  },
+                  "source_resource_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_revision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "method",
+                  "source_resource_id",
+                  "source_revision",
+                  "source_sha256",
+                  "evidence"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "geometry_evidence": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "edge_id",
+              "from",
+              "to",
+              "type",
+              "verification",
+              "provenance"
+            ]
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resource_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "locator": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "resource_id",
+              "revision",
+              "sha256"
+            ]
+          }
+        },
+        "registry": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "sha256",
+                "locator"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "readiness": {
+          "type": "object",
+          "properties": {
+            "schema": {
+              "type": "string",
+              "const": "spatial-canvas.relationship-status.v1"
+            },
+            "component_hierarchy": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "READY",
+                    "PARTIAL",
+                    "BLOCKED",
+                    "NOT_REQUESTED"
+                  ]
+                },
+                "diagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "diagnostics"
+              ]
+            },
+            "physical_connectivity": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "READY",
+                    "PARTIAL",
+                    "BLOCKED",
+                    "NOT_REQUESTED"
+                  ]
+                },
+                "diagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "diagnostics"
+              ]
+            },
+            "space_adjacency": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "READY",
+                    "PARTIAL",
+                    "BLOCKED",
+                    "NOT_REQUESTED"
+                  ]
+                },
+                "diagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "diagnostics"
+              ]
+            },
+            "transition_graph": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "READY",
+                    "PARTIAL",
+                    "BLOCKED",
+                    "NOT_REQUESTED"
+                  ]
+                },
+                "diagnostics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "diagnostics"
+              ]
+            }
+          },
+          "required": [
+            "schema",
+            "component_hierarchy",
+            "physical_connectivity",
+            "space_adjacency",
+            "transition_graph"
+          ]
+        }
+      },
+      "required": [
+        "subject_id",
+        "primary_space_id",
+        "design_id",
+        "status",
+        "graph_id",
+        "graph_revision",
+        "nodes",
+        "edges",
+        "sources",
+        "registry",
+        "truncated",
+        "diagnostics",
+        "readiness"
       ]
     }
   },

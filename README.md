@@ -72,3 +72,9 @@ Frozen sources use an external binding registry and are never annotated or saved
 Entities identify physical objects; spaces identify independently sourced regions. A continuous floor can resolve to different spaces at different hit points. Use **Import spatial semantics** to choose Space Registry and project descriptor JSON. The Workspace computes `READY`, `PARTIAL` or `BLOCKED_FOR_SPATIAL_CONTEXT`, exposes missing evidence/review/coverage diagnostics and includes the actual spatial result in copied/exported ContextPackets. No room context is inferred from an entity's name or `room_id`.
 
 See [V0.4 protocol and ingestion workflow](docs/protocol-v0.4.md) and [real acceptance evidence](docs/validation-v0.4.md). Native source inventory is read-only; unsupported IFC/FreeCAD representations require normalized boundary exports. No BIM authoring or general room-reconstruction suite is implemented.
+
+## V0.5 relationships
+
+Use **Import relationship graph** to load typed, evidenced membership, direct connections, embedding, adjacency and transitions. The Relationships inspector and ContextPacket preserve original relation ownership and verified/candidate/rejected state. Component membership never implies physical connection; missing plumbing or transition evidence produces a gap. Capability readiness is separate from spatial readiness.
+
+See [V0.5 protocol/workflows](docs/protocol-v0.5.md), [real sink/door/stair/wall validation](docs/validation-v0.5.md) and the generic fixture in examples/relationships. Graphs are external and frozen sources remain unchanged.

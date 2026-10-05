@@ -1,6 +1,7 @@
 import { contextPacketSchema, type CameraView, type ContextHit, type ContextSelection } from '../protocol/context';
 import type { Entity, Manifest, SelectionEvent } from '../protocol/index';
 import {createSpatialContext,type LoadedSemantics} from './spatial-context';
+import {createRelationshipContext} from './relationship-context';
 
 export function createContextPacket(manifest:Manifest, selection:SelectionEvent|ContextSelection, entities:ReadonlyMap<string,Entity>,
   view:CameraView, hit:ContextHit|null,semantics?:LoadedSemantics){
@@ -31,6 +32,9 @@ export function createContextPacket(manifest:Manifest, selection:SelectionEvent|
   }
   const primary='primary_entity_id' in selection?selection.primary_entity_id:
     resolvedHit?.entity_id??selection.entity_ids.at(-1)??null;
+  const spatial=createSpatialContext(manifest,resolvedHit,semantics);
+  const relationships=createRelationshipContext(manifest,primary,entities,semantics,spatial.primary_space_id);
+  if(spatial.semantic_status)spatial.semantic_status.relationship_status=relationships.readiness;
   return contextPacketSchema.parse({
     schema:'spatial-canvas.context.v1',packet_id:'ctx_'+crypto.randomUUID(),timestamp:new Date().toISOString(),
     selection:{...selection,primary_entity_id:primary},resource:{...manifest},source:{
@@ -43,6 +47,7 @@ export function createContextPacket(manifest:Manifest, selection:SelectionEvent|
       if(!entity)throw new Error('Unknown selected entity');
       return entity;
     }),
-    view:{kind:'camera3d',data:view},hit:resolvedHit,spatial_context:createSpatialContext(manifest,resolvedHit,semantics),
+    view:{kind:'camera3d',data:view},hit:resolvedHit,spatial_context:spatial,
+    relationships,
   });
 }

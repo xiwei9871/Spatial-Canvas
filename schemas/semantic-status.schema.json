@@ -2,6 +2,122 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "relationship_status": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "spatial-canvas.relationship-status.v1"
+        },
+        "component_hierarchy": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "READY",
+                "PARTIAL",
+                "BLOCKED",
+                "NOT_REQUESTED"
+              ]
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "status",
+            "diagnostics"
+          ]
+        },
+        "physical_connectivity": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "READY",
+                "PARTIAL",
+                "BLOCKED",
+                "NOT_REQUESTED"
+              ]
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "status",
+            "diagnostics"
+          ]
+        },
+        "space_adjacency": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "READY",
+                "PARTIAL",
+                "BLOCKED",
+                "NOT_REQUESTED"
+              ]
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "status",
+            "diagnostics"
+          ]
+        },
+        "transition_graph": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "READY",
+                "PARTIAL",
+                "BLOCKED",
+                "NOT_REQUESTED"
+              ]
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "status",
+            "diagnostics"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "component_hierarchy",
+        "physical_connectivity",
+        "space_adjacency",
+        "transition_graph"
+      ]
+    },
     "schema": {
       "type": "string",
       "const": "spatial-canvas.semantic-status.v1"

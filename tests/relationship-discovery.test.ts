@@ -1,0 +1,7 @@
+import {expect,it} from 'vitest';
+import {discoverRelationships} from '../packages/core/relationship-discovery';
+import {graph} from './relationship-data';
+const source={resource_id:'model',revision:'r1',sha256:'a'.repeat(64),frame:{coordinate_frame:'fixture_world',unit:'meter' as const,up_axis:'Z' as const}};
+it('prefers explicit graph to hierarchy or proximity evidence for any project',()=>{const r=discoverRelationships('demo',source,[{graph},{objects:[{node_id:'raw',native_id:'Raw',groups:['group'],bounds:[[0,0,0],[1,1,1]]}]}]);expect(r.graph.graph_id).toBe('g1');expect(r.method).toBe('explicit');});
+it('raw mesh evidence exposes conservative candidates and missing functional knowledge',()=>{const r=discoverRelationships('another_design',source,[{objects:[{node_id:'a',native_id:'A',groups:[],bounds:[[0,0,0],[1,1,1]]},{node_id:'b',native_id:'B',groups:[],bounds:[[1,0,0],[2,1,1]]}]}]);expect(r.graph.edges[0]!.verification.state).toBe('candidate');expect(r.graph.gaps.some(g=>g.capability==='physical_connectivity')).toBe(true);expect(r.graph.gaps.some(g=>g.capability==='component_hierarchy')).toBe(true);});
+it('hierarchy membership produces part_of independently of physical connectivity',()=>{const r=discoverRelationships('new_design',source,[{objects:[{node_id:'a',native_id:'A',groups:['assembly'],bounds:[[0,0,0],[1,1,1]]}]}]);expect(r.graph.edges.some(e=>e.type==='part_of')).toBe(true);expect(r.graph.edges.some(e=>e.type==='connected_to')).toBe(false);});

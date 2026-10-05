@@ -1,0 +1,202 @@
+{
+  "schema": "spatial-canvas.relationships.v1",
+  "design_id": "generic_panel_project",
+  "graph_id": "generic_relationship_fixture",
+  "revision": "1",
+  "sources": [
+    {
+      "resource_id": "model",
+      "revision": "r1",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "nodes": [
+    {
+      "node_id": "bottom",
+      "kind": "entity",
+      "resource_id": "model",
+      "native_id": "native"
+    },
+    {
+      "node_id": "wallL",
+      "kind": "entity",
+      "resource_id": "model",
+      "native_id": "native"
+    },
+    {
+      "node_id": "wallR",
+      "kind": "entity",
+      "resource_id": "model",
+      "native_id": "native"
+    },
+    {
+      "node_id": "sink",
+      "kind": "component_group",
+      "resource_id": "model",
+      "name": "Panel assembly"
+    },
+    {
+      "node_id": "cabinet",
+      "kind": "component_group",
+      "resource_id": "model"
+    },
+    {
+      "node_id": "spaceA",
+      "kind": "space",
+      "resource_id": "model"
+    },
+    {
+      "node_id": "spaceB",
+      "kind": "space",
+      "resource_id": "model"
+    },
+    {
+      "node_id": "door",
+      "kind": "entity",
+      "resource_id": "model",
+      "native_id": "native"
+    },
+    {
+      "node_id": "near",
+      "kind": "entity",
+      "resource_id": "model",
+      "native_id": "native"
+    },
+    {
+      "node_id": "boundary_wall",
+      "kind": "entity",
+      "name": "Partition wall",
+      "resource_id": "model",
+      "native_id": "WALL"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e1",
+      "from": "bottom",
+      "to": "wallL",
+      "type": "connected_to",
+      "verification": {
+        "state": "verified",
+        "reviewer": "owner",
+        "timestamp": "2026-10-05T04:00:00.000Z",
+        "note": "reviewed"
+      },
+      "provenance": {
+        "method": "imported",
+        "source_resource_id": "model",
+        "source_revision": "r1",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence": "sink assembly register"
+      }
+    },
+    {
+      "edge_id": "e2",
+      "from": "bottom",
+      "to": "wallR",
+      "type": "connected_to",
+      "verification": {
+        "state": "verified",
+        "reviewer": "owner",
+        "timestamp": "2026-10-05T04:00:00.000Z",
+        "note": "reviewed"
+      },
+      "provenance": {
+        "method": "imported",
+        "source_resource_id": "model",
+        "source_revision": "r1",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence": "sink assembly register"
+      }
+    },
+    {
+      "edge_id": "e3",
+      "from": "bottom",
+      "to": "sink",
+      "type": "part_of",
+      "verification": {
+        "state": "verified",
+        "reviewer": "owner",
+        "timestamp": "2026-10-05T04:00:00.000Z",
+        "note": "reviewed"
+      },
+      "provenance": {
+        "method": "imported",
+        "source_resource_id": "model",
+        "source_revision": "r1",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence": "assembly register"
+      }
+    },
+    {
+      "edge_id": "e4",
+      "from": "sink",
+      "to": "cabinet",
+      "type": "embedded_in",
+      "verification": {
+        "state": "verified",
+        "reviewer": "owner",
+        "timestamp": "2026-10-05T04:00:00.000Z",
+        "note": "reviewed"
+      },
+      "provenance": {
+        "method": "imported",
+        "source_resource_id": "model",
+        "source_revision": "r1",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence": "cabinet register"
+      }
+    },
+    {
+      "edge_id": "e5",
+      "from": "door",
+      "to": "spaceA",
+      "type": "transition_between",
+      "endpoints": [
+        "spaceA",
+        "spaceB"
+      ],
+      "verification": {
+        "state": "verified",
+        "reviewer": "owner",
+        "timestamp": "2026-10-05T04:00:00.000Z",
+        "note": "reviewed"
+      },
+      "provenance": {
+        "method": "user_authored",
+        "source_resource_id": "model",
+        "source_revision": "r1",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence": "reviewed opening"
+      }
+    },
+    {
+      "edge_id": "wall_boundary_A",
+      "from": "boundary_wall",
+      "to": "spaceA",
+      "type": "adjacent_to",
+      "verification": {
+        "state": "verified",
+        "reviewer": "owner",
+        "timestamp": "2026-10-05T04:00:00.000Z",
+        "note": "reviewed"
+      },
+      "provenance": {
+        "method": "imported",
+        "source_resource_id": "model",
+        "source_revision": "r1",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence": "Authored fixture shared-boundary relation"
+      }
+    }
+  ],
+  "gaps": [
+    {
+      "capability": "physical_connectivity",
+      "node_id": "near",
+      "message": "Nearby unrelated object has no connection evidence.",
+      "action": "Do not infer a connection from proximity."
+    }
+  ],
+  "requirements": []
+}
