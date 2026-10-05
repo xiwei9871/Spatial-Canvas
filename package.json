@@ -1,6 +1,6 @@
 {
   "name": "spatial-canvas",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -24,7 +24,10 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "relationships:discover": "tsx scripts/discover-relationships.ts",
     "relationships:review": "tsx scripts/review-relationships.ts",
-    "relationships:validate": "tsx scripts/validate-relationship-context.ts"
+    "relationships:validate": "tsx scripts/validate-relationship-context.ts",
+    "project:init": "tsx scripts/project-cli.ts init",
+    "project:inspect": "tsx scripts/project-cli.ts inspect",
+    "project:validate": "tsx scripts/project-cli.ts validate"
   },
   "dependencies": {
     "polygon-clipping": "^0.15.7",

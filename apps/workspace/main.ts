@@ -2,6 +2,8 @@ import './style.css';
 import { createIntent, reconcileSelection, select } from '../../packages/core/index';
 import { createContextPacket } from '../../packages/core/context';
 import {importSemantics} from '../../packages/core/semantic-import';
+import {SemanticState} from '../../packages/core/semantic-state';
+import {buildAiHandoff,copyWithFallback,ContextSnapshot} from '../../packages/core/handoff';
 import {importRelationships} from '../../packages/core/relationship-import';
 import type {LoadedSemantics} from '../../packages/core/spatial-context';
 import type { ContextHit } from '../../packages/protocol/context';
@@ -10,11 +12,11 @@ import { loadProxy, ProxyViewer, type LoadedProxy } from '../../packages/viewer/
 import { disposeScene, spatialMetadata } from '../../packages/viewer/scene';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header><div><h1>Spatial Canvas <small>V0.5</small></h1><p>Point to entities, spaces and evidenced project relationships.</p></div>
+  <header><div><h1>Spatial Canvas <small>V0.5.1</small></h1><p>Point to entities, spaces and evidenced project relationships.</p></div>
     <div class="toolbar"><button id="example">Load full example</button><button id="task">Load task example</button>
     <label class="file-button">Open local export<input id="files" type="file" accept=".json,.glb" multiple></label>
     <button id="reload" disabled>Reload proxy</button></div></header>
-  <div id="status" role="status">Load the included example or choose a manifest and its GLB together.</div>
+  <div id="status" role="status">Load the included example or choose a manifest and its GLB together.</div><div id="activity" role="status" aria-live="polite"></div>
   <main><section class="viewport" aria-label="Viewport"><div id="viewer"></div>
     <div class="viewport-actions"><button id="clear" disabled>Clear selection</button><button id="frame" disabled>Frame selection</button></div>
     <p class="help">Drag to orbit · right-drag to pan · scroll to zoom · Shift / Ctrl / ⌘ click to multi-select</p></section>
@@ -29,7 +31,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="copy-handoff" disabled>Copy AI Handoff</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="handoff-fallback" hidden aria-label="AI handoff fallback"></pre><button id="copy-handoff-fallback" hidden>Copy handoff text</button><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -44,6 +46,10 @@ let lastSelection:SelectionEvent|undefined;
 let currentHit:ContextHit|null=null;
 let semantics:LoadedSemantics={};
 let semanticsGeneration=0;
+const semanticState=new SemanticState();
+const contextSnapshot=new ContextSnapshot();
+let currentHandoff='';
+const activity=(message:string)=>{el('activity').textContent=message;};
 
 function emit(event: ProtocolEvent) {
   if (event.schema === 'spatial-canvas.intent.v1') {
@@ -61,6 +67,7 @@ function applySelection(event: SelectionEvent) {
   lastSelection=event;
   selected = event.entity_ids;
   if(currentHit&&!selected.includes(currentHit.entity_id))currentHit=null;
+  contextSnapshot.clear();
   viewer.highlight(selected);
   renderSelection();
   emit(event);
@@ -94,6 +101,8 @@ function renderSemantics(){
   el('space-result').textContent=spatial.resolution+' · '+(spatial.containing_spaces.map(s=>s.name+' ['+s.space_id+'] ('+s.verification.state+')').join(', ')||'No containing space');
   el('semantic-diagnostics').textContent=spatial.diagnostics.length?spatial.diagnostics.join('\n\n'):'Verified region coverage for declared project domains. Boundary clicks may still be ambiguous.';
   const relationships=context.relationships!;
+  const key=JSON.stringify({design:manifest.design_id,resource:manifest.resource_id,revision:manifest.source_revision,selection:lastSelection.entity_ids,hit:currentHit,space:spatial.primary_space_id,graph:relationships.graph_id,graphRevision:relationships.graph_revision});
+  const stable=contextSnapshot.get(key,()=>context);currentHandoff=buildAiHandoff(stable);el<HTMLButtonElement>('copy-handoff').disabled=false;
   el('relationship-state').textContent=relationships.status+' · '+relationships.edges.length+' relevant edges'+(relationships.truncated?' (truncated)':'');
   el('relationship-list').replaceChildren();
   const names=new Map(relationships.nodes.map(n=>[n.node_id,n.name??n.native_id??n.node_id]));
@@ -119,6 +128,7 @@ function renderEntities() {
   }
 }
 async function install(manifestData: unknown, buffer: ArrayBuffer, generation: number, example?: typeof lastExample) {
+  activity('Validating manifest and proxy…');
   const nextManifest = manifestSchema.parse(manifestData);
   const nextProxy = await loadProxy(buffer, nextManifest);
   if (generation !== loadingGeneration) { disposeScene(nextProxy.root); return; }
@@ -127,6 +137,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   proxy = nextProxy;
   lastExample = example;
   semanticsGeneration++;
+  semanticState.proxyChanged(manifest);semantics=semanticState.value;contextSnapshot.clear();
   const applicability=semantics.registry?.applies_to.find(s=>s.resource_id===manifest!.source_resource_id);
   if(semantics.registry&&(semantics.registry.design_id!==manifest.design_id||!applicability||applicability.revision!==manifest.source_revision||applicability.sha256!==manifest.source_sha256))semantics={};
   if(semantics.project&&semantics.project.design_id!==manifest.design_id)semantics={};
@@ -142,6 +153,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   el<HTMLButtonElement>('download-context').disabled=false;
   el<HTMLButtonElement>('copy-context').disabled=false;
   applySelection(event);
+  activity('Loaded; source and semantic evidence linked.');
   status('Loaded ' + manifest.proxy_uri + ' — ' + manifest.entity_count + ' stable entities. Source: ' + manifest.source_resource);
 }
 function reportError(error: unknown, generation: number) {
@@ -150,6 +162,7 @@ function reportError(error: unknown, generation: number) {
 async function loadExample(name: NonNullable<typeof lastExample>) {
   const generation = ++loadingGeneration;
   status('Loading example…');
+  activity('Loading proxy…');
   try {
     const base = '/living/task-output/artifacts/';
     const response = await fetch(base + name + '.manifest.json', { cache: 'no-store' });
@@ -163,6 +176,7 @@ async function loadExample(name: NonNullable<typeof lastExample>) {
 async function loadFiles(files: File[]) {
   const generation = ++loadingGeneration;
   status('Reading local export…');
+  activity('Reading and validating proxy pair…');
   try {
     const manifests = files.filter((file) => file.name.endsWith('.manifest.json'));
     if (manifests.length !== 1) throw new Error('Choose exactly one .manifest.json and its referenced .glb together.');
@@ -187,24 +201,25 @@ el('search').addEventListener('input', renderEntities);
 el<HTMLInputElement>('semantics-files').addEventListener('change',async event=>{
   const input=event.target as HTMLInputElement,files=[...input.files??[]];input.value='';
   const generation=++semanticsGeneration;
+  activity('Validating project and Space Registry…');semanticState.invalidate('Replacing spatial semantics');semantics=semanticState.value;contextSnapshot.clear();renderSemantics();
   try{
     const imported=await importSemantics(await Promise.all(files.map(async file=>({name:file.name,bytes:new Uint8Array(await file.arrayBuffer())}))));
     if(generation!==semanticsGeneration)return;
-    const candidate={...semantics,...imported};
+    const candidate={...semanticState.value,...imported};
     if(manifest&&proxy&&lastSelection)createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,candidate);
-    semantics=candidate;renderSemantics();status('Spatial evidence imported. Readiness and latest hit resolution have been recomputed.');
-  }catch(error){status(error instanceof Error?error.message:String(error),true);}
+    semantics={...candidate,project:imported.project,registry:imported.registry,artifact:imported.artifact};semanticState.value=semantics;contextSnapshot.clear();renderSemantics();status('Spatial evidence imported. Readiness and latest hit resolution have been recomputed.');activity('Spatial evidence loaded.');
+  }catch(error){semantics=semanticState.value;renderSemantics();const message=error instanceof Error?error.message:String(error);status(message,true);activity('Spatial import rejected; previous spatial result was cleared.');}
 });
-el('clear-semantics').addEventListener('click',()=>{semanticsGeneration++;semantics={};renderSemantics();status('Spatial evidence cleared; room context now requires supplementation.');});
+el('clear-semantics').addEventListener('click',()=>{semanticsGeneration++;semanticState.invalidate('Spatial evidence cleared');semantics=semanticState.value;contextSnapshot.clear();renderSemantics();status('Spatial evidence cleared; room context now requires supplementation.');activity('Spatial evidence cleared.');});
 el<HTMLInputElement>('relationship-files').addEventListener('change',async event=>{
   const input=event.target as HTMLInputElement,files=[...input.files??[]];input.value='';const generation=++semanticsGeneration;
   try{
     const result=await importRelationships(await Promise.all(files.map(async file=>({name:file.name,bytes:new Uint8Array(await file.arrayBuffer())}))));
     if(generation!==semanticsGeneration)return;
-    semantics={...semantics,relationshipGraph:result.graph,relationshipArtifact:result.artifact};renderSemantics();status('Relationship evidence imported. Typed edges and capability gaps are available in ContextPacket.');
-  }catch(error){if(generation===semanticsGeneration){delete semantics.relationshipGraph;delete semantics.relationshipArtifact;renderSemantics();status(error instanceof Error?error.message:String(error),true);}}
+    semantics={...semantics,relationshipGraph:result.graph,relationshipArtifact:result.artifact};semanticState.value=semantics;contextSnapshot.clear();renderSemantics();status('Relationship evidence imported. Typed edges and capability gaps are available in ContextPacket.');activity('Relationship graph loaded.');
+  }catch(error){if(generation===semanticsGeneration){delete semantics.relationshipGraph;delete semantics.relationshipArtifact;semanticState.value=semantics;contextSnapshot.clear();renderSemantics();status(error instanceof Error?error.message:String(error),true);activity('Relationship graph rejected; prior graph trust was cleared.');}}
 });
-el('clear-relationships').addEventListener('click',()=>{semanticsGeneration++;delete semantics.relationshipGraph;delete semantics.relationshipArtifact;renderSemantics();status('Relationship graph cleared. Connections require evidence.');});
+el('clear-relationships').addEventListener('click',()=>{semanticsGeneration++;delete semanticState.value.relationshipGraph;delete semanticState.value.relationshipArtifact;semantics=semanticState.value;contextSnapshot.clear();renderSemantics();status('Relationship graph cleared. Connections require evidence.');activity('Relationship graph cleared.');});
 el('clear').addEventListener('click', () => choose(null, false, 'list'));
 el('frame').addEventListener('click', () => viewer.frame(selected));
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') choose(null, false, 'keyboard'); });
@@ -231,17 +246,26 @@ el('download-intent').addEventListener('click', () => {
 });
 function currentContext(){
   if(!manifest||!proxy||!lastSelection)throw new Error('Load a proxy before exporting context.');
-  const packet=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,semantics);
+  const key=JSON.stringify({design:manifest.design_id,resource:manifest.resource_id,revision:manifest.source_revision,selection:lastSelection.entity_ids,hit:currentHit,space:el('space-result').textContent,graph:semantics.relationshipGraph?.graph_id,graphRevision:semantics.relationshipGraph?.revision});
+  const packet=contextSnapshot.get(key,()=>createContextPacket(manifest!,lastSelection!,proxy!.entities,viewer.viewSnapshot(manifest!.coordinate_frame),currentHit,semantics));
   emit(packet);
   return packet;
 }
 el('copy-context').addEventListener('click',async()=>{
   try{
     const packet=currentContext();
-    await navigator.clipboard.writeText(JSON.stringify(packet,null,2));
+    await navigator.clipboard.writeText(JSON.stringify(packet,null,2));activity('ContextPacket copied to clipboard.');
     status('ContextPacket copied. Paste it into Codex to identify this object.');
   }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
+el('copy-handoff').addEventListener('click',async()=>{
+  if(!currentHandoff)return;
+  const result=await copyWithFallback(currentHandoff,text=>navigator.clipboard.writeText(text));
+  if(result.copied){el<HTMLPreElement>('handoff-fallback').hidden=true;el<HTMLButtonElement>('copy-handoff-fallback').hidden=true;status('AI Handoff copied. Paste it into your AI assistant.');activity('AI Handoff copied.');return;}
+  const fallback=el<HTMLPreElement>('handoff-fallback');fallback.textContent=result.fallback;fallback.hidden=false;el<HTMLButtonElement>('copy-handoff-fallback').hidden=false;fallback.tabIndex=0;fallback.focus();
+  status('Clipboard unavailable. AI Handoff is displayed below for manual selection. '+result.error,true);activity('Clipboard denied; fallback text is ready below.');
+});
+el('copy-handoff-fallback').addEventListener('click',async()=>{const text=el('handoff-fallback').textContent??'';const result=await copyWithFallback(text,value=>navigator.clipboard.writeText(value));if(result.copied){status('AI Handoff copied.');el<HTMLButtonElement>('copy-handoff-fallback').hidden=true;}else status('Clipboard still unavailable; use the displayed handoff text.',true);});
 el('download-context').addEventListener('click',()=>{
   if(!manifest||!proxy||!lastSelection)return;
   try{

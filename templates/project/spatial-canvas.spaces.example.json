@@ -1,0 +1,10 @@
+{
+  "schema":"spatial-canvas.spaces.v1","registry_id":"spaces_example","registry_revision":"1","design_id":"design_example",
+  "applies_to":[{"resource_id":"model_example","revision":"r1","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],
+  "frame":{"coordinate_frame":"project_world","unit":"meter","up_axis":"Z"},
+  "source_context":{"sources":[
+    {"resource_id":"model_example","type":"blender","revision":"r1","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","locator":"/replace/with/authoritative/source.blend","semantic_capability":"geometry_only","diagnostics":["EXAMPLE ONLY"]},
+    {"resource_id":"plan_example","type":"authored_json","revision":"1","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","locator":"/replace/with/room-evidence.json","semantic_capability":"candidate_regions","diagnostics":["EXAMPLE ONLY"]}
+  ]},
+  "spaces":[{"space_id":"space_example","name":"Example room","semantic_type":"room","level_id":"level_example","region":{"type":"polygon_prism","polygon":[[0,0],[4,0],[4,3],[0,3]],"z_min":0,"z_max":2.7,"coordinate_frame":"project_world","unit":"meter"},"provenance":{"method":"user_authored","source_resource_id":"plan_example","source_revision":"1","source_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","evidence":"EXAMPLE ONLY; replace with reviewed boundary evidence"},"confidence":0.2,"verification":{"state":"candidate"}}]
+}
