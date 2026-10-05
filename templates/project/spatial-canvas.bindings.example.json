@@ -1,0 +1,6 @@
+{
+  "schema":"spatial-canvas.bindings.v1","registry_id":"bindings_example","registry_revision":"1","design_id":"design_example",
+  "source_resource_id":"model_example","source_revision":"r1","source_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_locator":"/replace/with/authoritative/source.blend","source_authority":"frozen",
+  "bindings":[{"entity_id":"ent_example","adapter":"blender","native_id":"REPLACE_WITH_NATIVE_OBJECT","semantic_type":"unassigned","room_id":"unassigned","authority_level":"HUMAN_DESIGN_GUIDE"}]
+}

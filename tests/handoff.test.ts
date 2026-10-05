@@ -1,0 +1,6 @@
+import {expect,it} from 'vitest';import {buildAiHandoff,copyWithFallback,ContextSnapshot} from '../packages/core/handoff';import {packet} from './context-data';import {contextPacketSchema} from '../packages/protocol/context';
+it('generic handoff includes unchanged packet, preserves uncertainty and edit-authority boundary',()=>{
+ const p=contextPacketSchema.parse(packet),text=buildAiHandoff(p);expect(text).toContain('Do not scan');expect(text).toContain('not authorization to edit');expect(text).toContain('candidate');expect(text).toContain('derived');expect(JSON.parse(text.split('<ContextPacket>\n')[1]!.split('\n</ContextPacket>')[0]!)).toEqual(p);
+});
+it('clipboard denial retains the exact fallback content and does not throw',async()=>{const text=buildAiHandoff(contextPacketSchema.parse(packet));const result=await copyWithFallback(text,async()=>{throw new Error('denied');});expect(result.copied).toBe(false);expect(result.fallback).toBe(text);});
+it('copy/export/handoff share one snapshot until context changes',()=>{let count=0;const cache=new ContextSnapshot();const get=()=>({...contextPacketSchema.parse(packet),packet_id:'ctx_'+(++count)});expect(cache.get('same',get)).toBe(cache.get('same',get));expect(cache.get('different',get).packet_id).toBe('ctx_2');});

@@ -1,0 +1,10 @@
+{
+  "schema": "spatial-canvas.project.v1",
+  "project_id": "design_example",
+  "design_id": "design_example",
+  "frame": {"coordinate_frame":"project_world","unit":"meter","up_axis":"Z"},
+  "sources": [
+    {"resource_id":"model_example","type":"blender","revision":"r1","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","locator":"/replace/with/authoritative/source.blend","semantic_capability":"geometry_only","diagnostics":["EXAMPLE ONLY: inspect native and structured semantic evidence"]}
+  ],
+  "levels": []
+}

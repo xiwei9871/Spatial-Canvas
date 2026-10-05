@@ -1,0 +1,7 @@
+import type {ContextPacket} from '../protocol/context';
+
+export function buildAiHandoff(packet:ContextPacket):string{
+  return `Use only the Spatial Canvas ContextPacket below. Do not scan or rediscover the source scene unless the user explicitly asks.\n\nAnswer from the packet's selected entity identity, source/revision/SHA, spatial_context and relationships. Distinguish direct connection, component membership, embedding, adjacency and transitions exactly as typed. Mark candidate, rejected, partial, unresolved and unavailable information as such; do not upgrade it to a verified fact. Missing relation data is not permission to infer.\n\nThe interaction proxy is derived. The cited source remains authoritative, and this context is not authorization to edit any source.\n\n<ContextPacket>\n${JSON.stringify(packet,null,2)}\n</ContextPacket>`;
+}
+export async function copyWithFallback(text:string,write:(text:string)=>Promise<void>){try{await write(text);return {copied:true,fallback:null as string|null,error:null as string|null};}catch(error){return {copied:false,fallback:text,error:error instanceof Error?error.message:String(error)};}}
+export class ContextSnapshot{private key?:string;private text?:string;private snapshot?:ContextPacket;get<T extends ContextPacket>(key:string,create:()=>T):T{if(key!==this.key||!this.text){this.key=key;this.text=JSON.stringify(create());this.snapshot=JSON.parse(this.text) as ContextPacket;}return this.snapshot as T;}clear(){this.key=undefined;this.text=undefined;this.snapshot=undefined;}}

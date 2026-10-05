@@ -1,0 +1,20 @@
+{
+  "schema":"spatial-canvas.relationships.v1","design_id":"design_example","graph_id":"relationships_example","revision":"1",
+  "sources":[
+    {"resource_id":"model_example","revision":"r1","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","locator":"/replace/with/authoritative/source.blend"},
+    {"resource_id":"spaces_example","revision":"1","sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","locator":"/replace/with/reviewed-registry.json"}
+  ],
+  "nodes":[
+    {"node_id":"ent_example_a","kind":"entity","name":"Example part A","resource_id":"model_example","native_id":"REPLACE_WITH_NATIVE_ID"},
+    {"node_id":"ent_example_b","kind":"entity","name":"Example part B","resource_id":"model_example","native_id":"REPLACE_WITH_NATIVE_ID"},
+    {"node_id":"cmp_example","kind":"component_group","name":"Example assembly","resource_id":"model_example"},
+    {"node_id":"space_example","kind":"space","name":"Example room","resource_id":"spaces_example","space_id":"space_example"}
+  ],
+  "edges":[{"edge_id":"rel_candidate_a","from":"ent_example_a","to":"cmp_example","type":"part_of","verification":{"state":"candidate"},"confidence":0.1,"provenance":{"method":"user_authored","source_resource_id":"model_example","source_revision":"r1","source_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence":"EXAMPLE ONLY; review hierarchy"}}],
+  "gaps":[
+    {"capability":"physical_connectivity","node_id":"ent_example_a","message":"Example connectivity is not reviewed.","action":"Supply explicit source evidence; do not infer from proximity."},
+    {"capability":"space_adjacency","node_id":"space_example","message":"Example boundary relation is not reviewed.","action":"Review shared boundary evidence."},
+    {"capability":"transition_graph","node_id":"ent_example_a","message":"Example transition endpoints are not reviewed.","action":"Provide complete space/level endpoints."}
+  ],
+  "requirements":[]
+}

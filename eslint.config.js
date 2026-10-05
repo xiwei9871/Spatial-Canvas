@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   { ignores: ['dist/**', 'node_modules/**', 'task-output/**'] },
+  { ignores: ['scripts/project-cli.ts'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ['**/*.js'], languageOptions: { globals: { process: 'readonly' } } },

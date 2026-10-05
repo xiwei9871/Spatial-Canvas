@@ -32,6 +32,9 @@ aside section { padding: 16px; border-bottom: 1px solid #e4eae7; }
 .relation.candidate { border-left-color: #bd8a34; background: #fff6e8; }
 .relation.rejected { border-left-color: #986a6a; background: #f6eeee; }
 #relationship-diagnostics { max-height: 200px; overflow-y: auto; }
+#activity { min-height: 0; padding: 0 24px; color: #647a74; font-size: 11px; }
+#activity:not(:empty) { padding-top: 4px; padding-bottom: 4px; }
+#handoff-fallback { max-height: 320px; overflow-y: auto; background: #edf2ef; padding: 12px; margin: 10px 0; }
 summary { cursor: pointer; font-size: 12px; margin-top: 10px; }
 input { width: 100%; border: 1px solid #bfd0c9; border-radius: 4px; padding: 7px; color: #263f3c; background: #fff; font: inherit; font-size: 12px; }
 #entities { display: flex; flex-direction: column; gap: 4px; margin-top: 9px; max-height: 160px; overflow-y: auto; }

@@ -78,3 +78,10 @@ See [V0.4 protocol and ingestion workflow](docs/protocol-v0.4.md) and [real acce
 Use **Import relationship graph** to load typed, evidenced membership, direct connections, embedding, adjacency and transitions. The Relationships inspector and ContextPacket preserve original relation ownership and verified/candidate/rejected state. Component membership never implies physical connection; missing plumbing or transition evidence produces a gap. Capability readiness is separate from spatial readiness.
 
 See [V0.5 protocol/workflows](docs/protocol-v0.5.md), [real sink/door/stair/wall validation](docs/validation-v0.5.md) and the generic fixture in examples/relationships. Graphs are external and frozen sources remain unchanged.
+
+
+## Current stable scope
+
+V0.1 selection · V0.2 authority loop · V0.3 frozen source + ContextPacket · V0.4 space semantics · V0.5 relationship semantics · V0.5.1 release hardening and onboarding. See [USER_GUIDE.md](docs/USER_GUIDE.md) and [PROJECT_ONBOARDING.md](docs/PROJECT_ONBOARDING.md).
+
+The project enters Stable / Maintenance when the V0.5.1 closeout merges. Concrete bug, compatibility and small usability fixes remain allowed; speculative V0.6 feature work is outside maintenance.
