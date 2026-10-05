@@ -173,6 +173,74 @@ class BlenderGates(unittest.TestCase):
         accessor = document["accessors"][mesh["primitives"][0]["attributes"]["POSITION"]]
         self.assertGreater(accessor["count"], 24)
 
+    def test_flat_colors_preserve_material_regions_without_texture_or_shader_payload(self):
+        sofa=bpy.data.objects["Sofa"]
+        material=bpy.data.materials.new("Readable green")
+        material.use_nodes=True
+        material.node_tree.nodes.get("Principled BSDF").inputs["Base Color"].default_value=(.15,.5,.35,1)
+        material.node_tree.nodes.new("ShaderNodeTexImage")
+        red=bpy.data.materials.new("Readable red")
+        red.use_nodes=True
+        red.node_tree.nodes.get("Principled BSDF").inputs["Base Color"].default_value=(.6,.15,.1,1)
+        sofa.data.materials.append(material)
+        sofa.data.materials.append(red)
+        sofa.data.polygons[0].material_index=1
+        self.saved()
+        counts=(len(bpy.data.objects),len(bpy.data.meshes),len(bpy.data.materials))
+        before=Path(self.source).read_bytes()
+        export_proxy(self.args(color_mode="source-flat"))
+        data=(Path(self.work.name)/"artifacts/interaction_proxy.glb").read_bytes()
+        doc=json.loads(data[20:20+struct.unpack_from("<I",data,12)[0]])
+        self.assertFalse(doc.get("images"))
+        self.assertFalse(doc.get("textures"))
+        self.assertFalse(doc.get("extensionsUsed"))
+        colors=[m["pbrMetallicRoughness"]["baseColorFactor"][:3] for m in doc.get("materials",[])]
+        self.assertTrue(any(all(abs(a-b)<1e-5 for a,b in zip(rgb,[.15,.5,.35])) for rgb in colors))
+        self.assertTrue(any(all(abs(a-b)<1e-5 for a,b in zip(rgb,[.6,.15,.1])) for rgb in colors))
+        mesh=doc["meshes"][next(n["mesh"] for n in doc["nodes"] if n["extras"]["global_id"]=="sofa")]
+        self.assertEqual(len({p["material"] for p in mesh["primitives"]}),2)
+        self.assertEqual(Path(self.source).read_bytes(),before)
+        self.assertEqual((len(bpy.data.objects),len(bpy.data.meshes),len(bpy.data.materials)),counts)
+
+    def test_zoning_colors_are_presentation_only(self):
+        from proxy_colors import zoning_color,ZONING_COLORS
+        metadata=common.scene_metadata()
+        before={obj.name:dict(obj.items()) for obj in common.eligible_objects()}
+        wall=bpy.data.objects["Wall"]
+        sofa=bpy.data.objects["Sofa"]
+        self.assertEqual(zoning_color(common.entity_from_object(wall,metadata),wall)[0],ZONING_COLORS["wall"])
+        self.assertEqual(zoning_color(common.entity_from_object(sofa,metadata),sofa)[0],ZONING_COLORS["furniture"])
+        floor={**common.entity_from_object(wall,metadata),"native_object_id":"FLOOR_LOWER","semantic_type":"unassigned"}
+        self.assertEqual(zoning_color(floor,wall)[0],ZONING_COLORS["floor"])
+        self.assertEqual({obj.name:dict(obj.items()) for obj in common.eligible_objects()},before)
+
+    def test_proxy_visibility_honors_hidden_collection_ancestors_and_view_layer(self):
+        visible=bpy.data.objects["Sofa"]
+        hidden=bpy.data.collections.new("HiddenGuides")
+        bpy.context.scene.collection.children.link(hidden)
+        hidden.hide_render=True
+        child=bpy.data.collections.new("NestedGuides")
+        hidden.children.link(child)
+        old_guide=visible.copy()
+        old_guide.data=visible.data.copy()
+        old_guide.name="OldGuide"
+        child.objects.link(old_guide)
+        self.assertFalse(old_guide.hide_render)
+        self.assertNotIn(old_guide,common.eligible_objects())
+        hidden.hide_render=False
+        hidden.hide_viewport=True
+        self.assertNotIn(old_guide,common.eligible_objects())
+        hidden.hide_viewport=False
+        bpy.context.view_layer.update()
+        hidden_layer=bpy.context.view_layer.layer_collection.children["HiddenGuides"]
+        hidden_layer.exclude=True
+        self.assertNotIn(old_guide,common.eligible_objects())
+        hidden_layer.exclude=False
+        bpy.context.view_layer.update()
+        self.assertIn(old_guide,common.eligible_objects())
+        visible.hide_set(True)
+        self.assertNotIn(visible,common.eligible_objects())
+
     def test_non_unit_scene_scale_export_and_execution(self):
         common.set_scene_metadata(bpy.context.scene, design_id="design_test", source_resource_id="source_test",
                                   source_revision="rev-00007", source_unit_scale=.01)

@@ -1,13 +1,15 @@
 import './style.css';
 import { createIntent, reconcileSelection, select } from '../../packages/core/index';
 import { createContextPacket } from '../../packages/core/context';
+import {importSemantics} from '../../packages/core/semantic-import';
+import type {LoadedSemantics} from '../../packages/core/spatial-context';
 import type { ContextHit } from '../../packages/protocol/context';
 import { manifestSchema, type Intent, type Manifest, type ProtocolEvent, type SelectionEvent } from '../../packages/protocol/index';
 import { loadProxy, ProxyViewer, type LoadedProxy } from '../../packages/viewer/index';
 import { disposeScene, spatialMetadata } from '../../packages/viewer/scene';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header><div><h1>Spatial Canvas <small>V0.3</small></h1><p>Point to stable entities. Send intent to the source.</p></div>
+  <header><div><h1>Spatial Canvas <small>V0.4</small></h1><p>Point to stable entities and independently defined spaces.</p></div>
     <div class="toolbar"><button id="example">Load full example</button><button id="task">Load task example</button>
     <label class="file-button">Open local export<input id="files" type="file" accept=".json,.glb" multiple></label>
     <button id="reload" disabled>Reload proxy</button></div></header>
@@ -16,12 +18,15 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="viewport-actions"><button id="clear" disabled>Clear selection</button><button id="frame" disabled>Frame selection</button></div>
     <p class="help">Drag to orbit · right-drag to pan · scroll to zoom · Shift / Ctrl / ⌘ click to multi-select</p></section>
   <aside><section><h2>Resource</h2><div id="resource">No proxy loaded</div></section>
+    <section><h2>Space / Region</h2><div id="semantic-readiness">BLOCKED_FOR_SPATIAL_CONTEXT</div><p id="space-result">Import space regions and project sources to resolve room context.</p>
+      <label class="file-button">Import spatial semantics<input id="semantics-files" type="file" accept=".json" multiple></label>
+      <button id="clear-semantics">Clear semantics</button><details><summary>Semantic diagnostics</summary><pre id="semantic-diagnostics">No spatial evidence loaded.</pre></details></section>
     <section><h2>Entities <span id="count">0</span></h2><input id="search" type="search" placeholder="Search ID, native ID, or type" aria-label="Search entities"><div id="entities"></div></section>
     <section><h2>Inspector <span id="selected-count">0 selected</span></h2><pre id="inspector">Select an entity to inspect identity and world coordinates.</pre></section>
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -34,6 +39,8 @@ let loadingGeneration = 0;
 let latestIntent: Intent | undefined;
 let lastSelection:SelectionEvent|undefined;
 let currentHit:ContextHit|null=null;
+let semantics:LoadedSemantics={};
+let semanticsGeneration=0;
 
 function emit(event: ProtocolEvent) {
   if (event.schema === 'spatial-canvas.intent.v1') {
@@ -74,6 +81,14 @@ function renderSelection() {
   }));
   el('inspector').textContent = selected.length ? JSON.stringify(metadata, null, 2) : 'Select an entity to inspect identity and world coordinates.';
   renderEntities();
+  renderSemantics();
+}
+function renderSemantics(){
+  if(!manifest||!proxy||!lastSelection)return;
+  const spatial=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,semantics).spatial_context!;
+  el('semantic-readiness').textContent=spatial.readiness;
+  el('space-result').textContent=spatial.resolution+' · '+(spatial.containing_spaces.map(s=>s.name+' ['+s.space_id+'] ('+s.verification.state+')').join(', ')||'No containing space');
+  el('semantic-diagnostics').textContent=spatial.diagnostics.length?spatial.diagnostics.join('\n\n'):'Verified region coverage for declared project domains. Boundary clicks may still be ambiguous.';
 }
 function renderEntities() {
   const query = el<HTMLInputElement>('search').value.toLowerCase();
@@ -97,6 +112,10 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   manifest = nextManifest;
   proxy = nextProxy;
   lastExample = example;
+  semanticsGeneration++;
+  const applicability=semantics.registry?.applies_to.find(s=>s.resource_id===manifest!.source_resource_id);
+  if(semantics.registry&&(semantics.registry.design_id!==manifest.design_id||!applicability||applicability.revision!==manifest.source_revision||applicability.sha256!==manifest.source_sha256))semantics={};
+  if(semantics.project&&semantics.project.design_id!==manifest.design_id)semantics={};
   latestIntent = undefined;
   currentHit=null;
   el<HTMLButtonElement>('download-intent').disabled = true;
@@ -105,6 +124,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   el('count').textContent = String(manifest.entity_count);
   el<HTMLButtonElement>('reload').disabled = false;
   el<HTMLButtonElement>('download-context').disabled=false;
+  el<HTMLButtonElement>('copy-context').disabled=false;
   applySelection(event);
   status('Loaded ' + manifest.proxy_uri + ' — ' + manifest.entity_count + ' stable entities. Source: ' + manifest.source_resource);
 }
@@ -148,6 +168,18 @@ el('reload').addEventListener('click', () => {
   else { status('Choose the newly exported manifest and GLB together to reload.'); el<HTMLInputElement>('files').click(); }
 });
 el('search').addEventListener('input', renderEntities);
+el<HTMLInputElement>('semantics-files').addEventListener('change',async event=>{
+  const input=event.target as HTMLInputElement,files=[...input.files??[]];input.value='';
+  const generation=++semanticsGeneration;
+  try{
+    const imported=await importSemantics(await Promise.all(files.map(async file=>({name:file.name,bytes:new Uint8Array(await file.arrayBuffer())}))));
+    if(generation!==semanticsGeneration)return;
+    const candidate={...semantics,...imported};
+    if(manifest&&proxy&&lastSelection)createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,candidate);
+    semantics=candidate;renderSemantics();status('Spatial evidence imported. Readiness and latest hit resolution have been recomputed.');
+  }catch(error){status(error instanceof Error?error.message:String(error),true);}
+});
+el('clear-semantics').addEventListener('click',()=>{semanticsGeneration++;semantics={};renderSemantics();status('Spatial evidence cleared; room context now requires supplementation.');});
 el('clear').addEventListener('click', () => choose(null, false, 'list'));
 el('frame').addEventListener('click', () => viewer.frame(selected));
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') choose(null, false, 'keyboard'); });
@@ -172,16 +204,29 @@ el('download-intent').addEventListener('click', () => {
   link.href = url; link.download = 'spatial-canvas.intent.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+function currentContext(){
+  if(!manifest||!proxy||!lastSelection)throw new Error('Load a proxy before exporting context.');
+  const packet=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,semantics);
+  emit(packet);
+  return packet;
+}
+el('copy-context').addEventListener('click',async()=>{
+  try{
+    const packet=currentContext();
+    await navigator.clipboard.writeText(JSON.stringify(packet,null,2));
+    status('ContextPacket copied. Paste it into Codex to identify this object.');
+  }catch(error){status(error instanceof Error?error.message:String(error),true);}
+});
 el('download-context').addEventListener('click',()=>{
   if(!manifest||!proxy||!lastSelection)return;
   try{
-    const packet=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit);
-    emit(packet);
+    const packet=currentContext();
     const url=URL.createObjectURL(new Blob([JSON.stringify(packet,null,2)],{type:'application/json'}));
     const link=document.createElement('a');
-    link.href=url;link.download='spatial-canvas.context.json';link.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    status('ContextPacket exported with current source, stable identity, view and actual hit.');
+    link.href=url;link.download='spatial-canvas.context.json';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    status('ContextPacket generated; download requested. If no file appears, use Copy ContextPacket.');
   }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
 el('viewer').addEventListener('dragover', (event) => event.preventDefault());

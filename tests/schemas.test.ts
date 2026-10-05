@@ -4,6 +4,9 @@ import addFormats from 'ajv-formats';
 import { expect, it } from 'vitest';
 import { executionResult, intent, manifest, selection } from './data';
 import {registry,packet} from './context-data';
+import {spaces,project} from './space-data';
+import {projectSchema,spaceRegistrySchema} from '../packages/protocol/spaces';
+import {ingestProject} from '../packages/core/ingestion';
 
 it('validates portable JSON Schema contracts and their rejection cases', async () => {
   const ajv = new Ajv({ strict: false });
@@ -19,6 +22,17 @@ it('validates portable JSON Schema contracts and their rejection cases', async (
       expect(validate({ ...selection, mode: 'clear' })).toBe(false);
     }
     if (name === 'manifest') expect(validate({ ...manifest, proxy_uri: '../unsafe.glb' })).toBe(false);
+  }
+});
+it('validates portable region/project/readiness contracts',async()=>{
+  const ajv=new Ajv({strict:false});addFormats(ajv);
+  const regionData=spaces(),projectData=project();
+  const status=ingestProject(projectSchema.parse(projectData),spaceRegistrySchema.parse(regionData));
+  for(const [name,value] of Object.entries({spaces:regionData,project:projectData,'semantic-status':status})){
+    const schema=JSON.parse(await readFile('schemas/'+name+'.schema.json','utf8'));
+    const validate=ajv.compile(schema);
+    expect(validate(value),JSON.stringify(validate.errors)).toBe(true);
+    expect(validate({...value,schema:'unsupported'})).toBe(false);
   }
 });
 

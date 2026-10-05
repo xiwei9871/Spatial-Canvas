@@ -59,7 +59,16 @@ def set_scene_metadata(scene, *, design_id, source_resource_id, source_revision,
 
 def eligible_objects(scene=None):
     scene = scene or bpy.context.scene
+    renderable=set()
+    def collect_renderable(collection):
+        if collection.hide_render:
+            return
+        renderable.update(collection.objects)
+        for child in collection.children:
+            collect_renderable(child)
+    collect_renderable(scene.collection)
     return [obj for obj in scene.objects if obj.type == "MESH" and not obj.hide_render
+            and obj in renderable and obj.visible_get(view_layer=bpy.context.view_layer)
             and not obj.get("spatial_canvas_exclude", False)]
 
 

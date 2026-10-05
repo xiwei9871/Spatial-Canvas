@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "spatial-canvas.semantic-status.v1"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "PARTIAL",
+        "BLOCKED_FOR_SPATIAL_CONTEXT"
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "locator": {
+            "type": "string",
+            "minLength": 1
+          },
+          "semantic_capability": {
+            "type": "string",
+            "enum": [
+              "explicit_regions",
+              "candidate_regions",
+              "geometry_only",
+              "none"
+            ]
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "resource_id",
+          "type",
+          "revision",
+          "sha256",
+          "locator",
+          "semantic_capability",
+          "diagnostics"
+        ]
+      }
+    },
+    "known_levels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "covered_levels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "uncovered_levels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "uncovered_volume": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "covered_levels",
+        "uncovered_levels",
+        "uncovered_volume"
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "action"
+        ]
+      }
+    },
+    "registry_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registry_revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "project_id",
+    "design_id",
+    "status",
+    "sources",
+    "known_levels",
+    "coverage",
+    "diagnostics",
+    "registry_id",
+    "registry_revision"
+  ],
+  "$id": "urn:spatial-canvas:semantic-status:v1"
+}
