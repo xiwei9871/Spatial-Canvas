@@ -85,3 +85,5 @@ See [V0.5 protocol/workflows](docs/protocol-v0.5.md), [real sink/door/stair/wall
 V0.1 selection · V0.2 authority loop · V0.3 frozen source + ContextPacket · V0.4 space semantics · V0.5 relationship semantics · V0.5.1 release hardening and onboarding. See [USER_GUIDE.md](docs/USER_GUIDE.md) and [PROJECT_ONBOARDING.md](docs/PROJECT_ONBOARDING.md).
 
 The project enters Stable / Maintenance when the V0.5.1 closeout merges. Concrete bug, compatibility and small usability fixes remain allowed; speculative V0.6 feature work is outside maintenance.
+
+For exact rendering viewpoints and temporary wall visibility, see [View Handoff / Camera Bookmark](docs/view-handoff.md).

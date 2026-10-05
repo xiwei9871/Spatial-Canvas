@@ -25,3 +25,6 @@ Editable sources may persist stable IDs inside the source when explicitly author
 - Large or partial project: read the readiness panel and complete the listed actions rather than treating `PARTIAL` as `READY`.
 
 See [PROJECT_ONBOARDING.md](PROJECT_ONBOARDING.md) for the reusable checklist and CLI path.
+# Exact view handoff
+
+For repeatable render comparisons, use **Hide/Ghost selected**, find the camera, **Lock view**, name it and **Save View**. **Export Camera Preset** provides JSON and PNG links; **Copy View Handoff** transfers the numeric pose. Reloading the matching proxy enables **Restore saved view**. See [View Handoff](view-handoff.md) for source checks and the Blender command.

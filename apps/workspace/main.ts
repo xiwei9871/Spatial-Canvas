@@ -10,6 +10,8 @@ import type { ContextHit } from '../../packages/protocol/context';
 import { manifestSchema, type Intent, type Manifest, type ProtocolEvent, type SelectionEvent } from '../../packages/protocol/index';
 import { loadProxy, ProxyViewer, type LoadedProxy } from '../../packages/viewer/index';
 import { disposeScene, spatialMetadata } from '../../packages/viewer/scene';
+import { buildViewHandoff } from '../../packages/core/view-handoff';
+import { viewPresetSchema, type ViewPreset } from '../../packages/protocol/view-preset';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header><div><h1>Spatial Canvas <small>V0.5.1</small></h1><p>Point to entities, spaces and evidenced project relationships.</p></div>
@@ -18,7 +20,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <button id="reload" disabled>Reload proxy</button></div></header>
   <div id="status" role="status">Load the included example or choose a manifest and its GLB together.</div><div id="activity" role="status" aria-live="polite"></div>
   <main><section class="viewport" aria-label="Viewport"><div id="viewer"></div>
-    <div class="viewport-actions"><button id="clear" disabled>Clear selection</button><button id="frame" disabled>Frame selection</button></div>
+    <div class="viewport-actions"><button id="clear" disabled>Clear selection</button><button id="frame" disabled>Frame selection</button><button id="ghost" disabled>Ghost selected</button><button id="hide" disabled>Hide selected</button><button id="show-all" disabled>Show all</button><button id="isolate" disabled>Isolate selection</button><button id="lock-view" disabled>Lock view</button></div>
     <p class="help">Drag to orbit · right-drag to pan · scroll to zoom · Shift / Ctrl / ⌘ click to multi-select</p></section>
   <aside><section><h2>Resource</h2><div id="resource">No proxy loaded</div></section>
     <section><h2>Space / Region</h2><div id="semantic-readiness">BLOCKED_FOR_SPATIAL_CONTEXT</div><p id="space-result">Import space regions and project sources to resolve room context.</p>
@@ -31,7 +33,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="copy-handoff" disabled>Copy AI Handoff</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><pre id="handoff-fallback" hidden aria-label="AI handoff fallback"></pre><button id="copy-handoff-fallback" hidden>Copy handoff text</button><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="copy-handoff" disabled>Copy AI Handoff</button> <input id="view-name" aria-label="View name" value="entrance_compare_01" maxlength="64"><button id="save-view" disabled>Save View</button><button id="restore-view" disabled>Restore saved view</button><label class="file-button">Import Camera Preset<input id="preset-file" type="file" accept=".json"></label> <button id="copy-view-handoff" disabled>Copy View Handoff</button> <button id="export-view" disabled>Export Camera Preset</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><div id="view-downloads"></div><pre id="handoff-fallback" hidden aria-label="AI handoff fallback"></pre><button id="copy-handoff-fallback" hidden>Copy handoff text</button><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -49,6 +51,11 @@ let semanticsGeneration=0;
 const semanticState=new SemanticState();
 const contextSnapshot=new ContextSnapshot();
 let currentHandoff='';
+let currentViewPreset:ViewPreset|undefined;
+let hiddenEntityIds:string[]=[];
+let ghostEntityIds:string[]=[];
+const savedViewKey=()=>manifest?['spatial-canvas.saved-view',manifest.design_id,manifest.source_resource_id,manifest.source_revision,manifest.source_sha256].join(':'):'';
+const persistView=()=>{try{if(currentViewPreset)localStorage.setItem(savedViewKey(),JSON.stringify(currentViewPreset));}catch{/* Export remains available if browser storage is blocked. */}};
 const activity=(message:string)=>{el('activity').textContent=message;};
 
 function emit(event: ProtocolEvent) {
@@ -85,6 +92,8 @@ function renderSelection() {
   el<HTMLButtonElement>('clear').disabled = !selected.length;
   el<HTMLButtonElement>('frame').disabled = !selected.length;
   el<HTMLButtonElement>('request').disabled = !selected.length || selected.some((id) => proxy?.entities.get(id)?.mutable === false);
+  for(const id of ['ghost','hide','isolate'])el<HTMLButtonElement>(id).disabled=!selected.length;
+  el<HTMLButtonElement>('show-all').disabled=!hiddenEntityIds.length&&!ghostEntityIds.length;
   const metadata = selected.map((id) => ({
     ...proxy!.entities.get(id), authority: 'derived',
     spatial: spatialMetadata(proxy!.objects.get(id)!, manifest!),
@@ -101,7 +110,7 @@ function renderSemantics(){
   el('space-result').textContent=spatial.resolution+' · '+(spatial.containing_spaces.map(s=>s.name+' ['+s.space_id+'] ('+s.verification.state+')').join(', ')||'No containing space');
   el('semantic-diagnostics').textContent=spatial.diagnostics.length?spatial.diagnostics.join('\n\n'):'Verified region coverage for declared project domains. Boundary clicks may still be ambiguous.';
   const relationships=context.relationships!;
-  const key=JSON.stringify({design:manifest.design_id,resource:manifest.resource_id,revision:manifest.source_revision,selection:lastSelection.entity_ids,hit:currentHit,space:spatial.primary_space_id,graph:relationships.graph_id,graphRevision:relationships.graph_revision});
+  const key=JSON.stringify({view:viewer.viewSnapshot(manifest.coordinate_frame),design:manifest.design_id,resource:manifest.resource_id,revision:manifest.source_revision,selection:lastSelection.entity_ids,hit:currentHit,space:spatial.primary_space_id,graph:relationships.graph_id,graphRevision:relationships.graph_revision});
   const stable=contextSnapshot.get(key,()=>context);currentHandoff=buildAiHandoff(stable);el<HTMLButtonElement>('copy-handoff').disabled=false;
   el('relationship-state').textContent=relationships.status+' · '+relationships.edges.length+' relevant edges'+(relationships.truncated?' (truncated)':'');
   el('relationship-list').replaceChildren();
@@ -143,6 +152,9 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   if(semantics.project&&semantics.project.design_id!==manifest.design_id)semantics={};
   const graphSource=semantics.relationshipGraph?.sources.find(s=>s.resource_id===manifest!.source_resource_id);
   if(semantics.relationshipGraph&&(semantics.relationshipGraph.design_id!==manifest.design_id||!graphSource||graphSource.revision!==manifest.source_revision||graphSource.sha256!==manifest.source_sha256)){delete semantics.relationshipGraph;delete semantics.relationshipArtifact;}
+  currentViewPreset=undefined;savedPreview='';el('view-downloads').replaceChildren();hiddenEntityIds=[];ghostEntityIds=[];
+  for(const id of ['copy-view-handoff','export-view','restore-view'])el<HTMLButtonElement>(id).disabled=true;
+  el<HTMLButtonElement>('save-view').disabled=false;el<HTMLButtonElement>('lock-view').disabled=false;el('lock-view').textContent='Lock view';
   latestIntent = undefined;
   currentHit=null;
   el<HTMLButtonElement>('download-intent').disabled = true;
@@ -152,6 +164,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   el<HTMLButtonElement>('reload').disabled = false;
   el<HTMLButtonElement>('download-context').disabled=false;
   el<HTMLButtonElement>('copy-context').disabled=false;
+  try{const stored=localStorage.getItem(savedViewKey());if(stored){const value=viewPresetSchema.parse(JSON.parse(stored));currentViewPreset=value;el<HTMLInputElement>('view-name').value=value.preset_id;el<HTMLButtonElement>('restore-view').disabled=false;}}catch{/* Invalid bookmarks are never applied. */}
   applySelection(event);
   activity('Loaded; source and semantic evidence linked.');
   status('Loaded ' + manifest.proxy_uri + ' — ' + manifest.entity_count + ' stable entities. Source: ' + manifest.source_resource);
@@ -222,6 +235,22 @@ el<HTMLInputElement>('relationship-files').addEventListener('change',async event
 el('clear-relationships').addEventListener('click',()=>{semanticsGeneration++;delete semanticState.value.relationshipGraph;delete semanticState.value.relationshipArtifact;semantics=semanticState.value;contextSnapshot.clear();renderSemantics();status('Relationship graph cleared. Connections require evidence.');activity('Relationship graph cleared.');});
 el('clear').addEventListener('click', () => choose(null, false, 'list'));
 el('frame').addEventListener('click', () => viewer.frame(selected));
+el('ghost').addEventListener('click',()=>{ghostEntityIds=[...new Set([...ghostEntityIds,...selected])];hiddenEntityIds=hiddenEntityIds.filter(id=>!ghostEntityIds.includes(id));viewer.applyVisibility(hiddenEntityIds,ghostEntityIds);contextSnapshot.clear();renderSelection();status('Selected entities are ghosted for this view only.');});
+el('hide').addEventListener('click',()=>{hiddenEntityIds=[...new Set([...hiddenEntityIds,...selected])];ghostEntityIds=ghostEntityIds.filter(id=>!hiddenEntityIds.includes(id));viewer.applyVisibility(hiddenEntityIds,ghostEntityIds);contextSnapshot.clear();renderSelection();status('Selected entities are hidden for this view only.');});
+el('show-all').addEventListener('click',()=>{hiddenEntityIds=[];ghostEntityIds=[];viewer.restoreVisibility();contextSnapshot.clear();renderSelection();status('All temporary view overrides restored.');});
+el('isolate').addEventListener('click',()=>{if(!proxy)return;hiddenEntityIds=[...proxy.entities.keys()].filter(id=>!selected.includes(id));ghostEntityIds=[];viewer.applyVisibility(hiddenEntityIds,[]);contextSnapshot.clear();renderSelection();status('Selection isolated for this view only.');});
+el('lock-view').addEventListener('click',()=>{const locked=!viewer.isViewLocked;viewer.setViewLocked(locked);el<HTMLButtonElement>('lock-view').textContent=locked?'Unlock view':'Lock view';status(locked?'View locked.':'View unlocked.');});
+let savedPreview='';
+function saveView(){if(!/^[A-Za-z0-9_-]{1,64}$/.test(el<HTMLInputElement>('view-name').value))throw new Error('View name: use 1–64 letters, digits, underscores or hyphens.');if(!manifest||!proxy)throw new Error('Load a proxy before saving a view.');const candidate=viewPresetSchema.parse(viewer.viewPreset(manifest,el<HTMLInputElement>('view-name').value,hiddenEntityIds,ghostEntityIds));const preview=viewer.screenshotDataUrl();currentViewPreset=candidate;savedPreview=preview;persistView();el<HTMLButtonElement>('copy-view-handoff').disabled=false;el<HTMLButtonElement>('export-view').disabled=false;status('View preset saved with camera, source camera and temporary visibility state.');el<HTMLButtonElement>('restore-view').disabled=false;emit(currentViewPreset);}
+el('save-view').addEventListener('click',()=>{try{saveView();}catch(error){status(error instanceof Error?error.message:String(error),true);}});
+el('copy-view-handoff').addEventListener('click',async()=>{if(!currentViewPreset)return;const result=await copyWithFallback(buildViewHandoff(currentViewPreset),text=>navigator.clipboard.writeText(text));if(result.copied)status('View Handoff copied. Apply the exact camera preset in Blender.');else {const fallback=el('handoff-fallback');fallback.textContent=result.fallback;fallback.hidden=false;status('Clipboard unavailable; View Handoff is displayed below.',true);}});
+el('export-view').addEventListener('click',()=>{
+ if(!currentViewPreset)return;
+ const box=el('view-downloads');box.replaceChildren();
+ const link=document.createElement('a');link.id='view-json-link';link.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(currentViewPreset,null,2));link.download=currentViewPreset.preset_id+'.view-preset.json';link.textContent='Download camera preset JSON';box.append(link);link.click();
+ if(savedPreview){const preview=document.createElement('a');preview.id='view-preview-link';preview.href=savedPreview;preview.download=currentViewPreset.preview_uri??'view.png';preview.textContent='Download reference preview PNG';box.append(preview);}
+ status('Camera preset ready. Use the two download links for JSON and reference PNG.');
+});
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') choose(null, false, 'keyboard'); });
 el('intent-form').addEventListener('submit', (event) => {
   event.preventDefault(); if (!manifest || !proxy) return;
@@ -246,7 +275,7 @@ el('download-intent').addEventListener('click', () => {
 });
 function currentContext(){
   if(!manifest||!proxy||!lastSelection)throw new Error('Load a proxy before exporting context.');
-  const key=JSON.stringify({design:manifest.design_id,resource:manifest.resource_id,revision:manifest.source_revision,selection:lastSelection.entity_ids,hit:currentHit,space:el('space-result').textContent,graph:semantics.relationshipGraph?.graph_id,graphRevision:semantics.relationshipGraph?.revision});
+  const key=JSON.stringify({view:viewer.viewSnapshot(manifest.coordinate_frame),design:manifest.design_id,resource:manifest.resource_id,revision:manifest.source_revision,selection:lastSelection.entity_ids,hit:currentHit,space:el('space-result').textContent,graph:semantics.relationshipGraph?.graph_id,graphRevision:semantics.relationshipGraph?.revision});
   const packet=contextSnapshot.get(key,()=>createContextPacket(manifest!,lastSelection!,proxy!.entities,viewer.viewSnapshot(manifest!.coordinate_frame),currentHit,semantics));
   emit(packet);
   return packet;
@@ -259,7 +288,8 @@ el('copy-context').addEventListener('click',async()=>{
   }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
 el('copy-handoff').addEventListener('click',async()=>{
-  if(!currentHandoff)return;
+  if(!manifest||!proxy)return;
+  currentHandoff=buildAiHandoff(currentContext());
   const result=await copyWithFallback(currentHandoff,text=>navigator.clipboard.writeText(text));
   if(result.copied){el<HTMLPreElement>('handoff-fallback').hidden=true;el<HTMLButtonElement>('copy-handoff-fallback').hidden=true;status('AI Handoff copied. Paste it into your AI assistant.');activity('AI Handoff copied.');return;}
   const fallback=el<HTMLPreElement>('handoff-fallback');fallback.textContent=result.fallback;fallback.hidden=false;el<HTMLButtonElement>('copy-handoff-fallback').hidden=false;fallback.tabIndex=0;fallback.focus();
@@ -284,3 +314,15 @@ el('viewer').addEventListener('drop', (event) => {
   if (files.length) void loadFiles(files);
 });
 if (import.meta.hot) import.meta.hot.dispose(() => viewer.dispose());
+
+function restorePreset(value:unknown){
+ const preset=viewPresetSchema.parse(value);
+ if(!manifest||!proxy)throw new Error('Load the matching proxy first.');
+ if(preset.design_id!==manifest.design_id||preset.source_resource_id!==manifest.source_resource_id||preset.source_revision!==manifest.source_revision||preset.source_sha256!==manifest.source_sha256)throw new Error('Preset source/revision/hash does not match loaded proxy.');
+ for(const id of [...preset.hidden_entity_ids,...preset.ghost_entity_ids])if(!proxy.entities.has(id))throw new Error('Unknown override entity: '+id);
+ viewer.restoreView(preset);hiddenEntityIds=[...preset.hidden_entity_ids];ghostEntityIds=[...preset.ghost_entity_ids];currentViewPreset=preset;savedPreview=viewer.screenshotDataUrl();persistView();el('lock-view').textContent='Unlock view';el<HTMLInputElement>('view-name').value=preset.preset_id;
+ for(const id of ['copy-view-handoff','export-view','restore-view'])el<HTMLButtonElement>(id).disabled=false;
+ contextSnapshot.clear();currentHit=null;renderSelection();status('Camera preset and temporary overrides restored; view locked.');
+}
+el('restore-view').addEventListener('click',()=>{try{if(currentViewPreset)restorePreset(currentViewPreset);}catch(error){status(String(error),true);}});
+el<HTMLInputElement>('preset-file').addEventListener('change',async event=>{const input=event.target as HTMLInputElement;const file=input.files?.[0];input.value='';if(!file)return;try{restorePreset(JSON.parse(await file.text()));}catch(error){status(error instanceof Error?error.message:String(error),true);}});

@@ -17,6 +17,7 @@
     "fixture": "tsx scripts/generate-fixture.ts",
     "blender:e2e": "tsx scripts/blender-e2e.ts",
     "test:adapter": "python3 -m unittest discover -s adapters/blender/tests -p test_contracts.py -v",
+    "test:camera": "python3 -m unittest discover -s adapters/blender/tests -p test_camera_preset.py -v",
     "test:bindings": "python3 -m unittest discover -s adapters/blender/tests -p test_bindings.py -v",
     "context:validate": "tsx scripts/validate-frozen-context.ts",
     "test:semantics": "python3 -m unittest discover -s adapters/semantics/tests -v",
