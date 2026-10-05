@@ -3,8 +3,9 @@ import type {ContextHit} from '../protocol/context';
 import {projectSchema,spatialContextSchema,type Project,type SpaceRegistry,type SpatialContext} from '../protocol/spaces';
 import {ingestProject} from './ingestion';
 import {locatePoint,type RegionPoint} from './regions';
+import type {RelationshipGraph} from '../protocol/relationships';
 
-export type LoadedSemantics={project?:Project;registry?:SpaceRegistry;artifact?:{sha256:string;locator:string}};
+export type LoadedSemantics={project?:Project;registry?:SpaceRegistry;artifact?:{sha256:string;locator:string};relationshipGraph?:RelationshipGraph;relationshipArtifact?:{sha256:string;locator:string}};
 export function createSpatialContext(manifest:Manifest,hit:ContextHit|null,semantics:LoadedSemantics={}):SpatialContext{
   const {registry,artifact}=semantics;
   const fallback=projectSchema.parse({schema:'spatial-canvas.project.v1',project_id:manifest.design_id,design_id:manifest.design_id,

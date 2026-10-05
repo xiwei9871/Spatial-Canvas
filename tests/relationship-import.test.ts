@@ -1,0 +1,2 @@
+import {expect,it} from 'vitest';import {importRelationships} from '../packages/core/relationship-import';import {graph} from './relationship-data';
+it('imports one graph with original bytes SHA and rejects duplicates',async()=>{const bytes=new TextEncoder().encode(JSON.stringify(graph));const r=await importRelationships([{name:'graph.json',bytes}]);expect(r.graph?.graph_id).toBe('g1');expect(r.artifact?.sha256).toMatch(/^[a-f0-9]{64}$/);await expect(importRelationships([{name:'a',bytes},{name:'b',bytes}])).rejects.toThrow(/one/);});

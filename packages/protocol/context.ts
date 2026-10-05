@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { authorityLevelSchema, entitySchema, resourceSchema, selectionSchema } from './index';
 import {spatialContextSchema} from './spaces';
+import {relationshipContextSchema} from './relationship-context';
 
 const id = z.string().min(1);
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -50,6 +51,7 @@ export const contextPacketSchema = z.object({
   view:z.object({kind:id,data:z.record(z.string(),z.unknown())}),
   hit:contextHitSchema.nullable(),
   spatial_context:spatialContextSchema.optional(),
+  relationships:relationshipContextSchema.optional(),
 }).superRefine((packet,ctx)=>{
   const reject=(message:string)=>ctx.addIssue({code:'custom',message});
   if(packet.resource.design_id!==packet.selection.design_id ||
@@ -68,6 +70,19 @@ export const contextPacketSchema = z.object({
   if(packet.hit && packet.view.kind==='camera3d' && packet.hit.frame_id!==packet.view.data.frame_id) reject('Hit/view frame mismatch');
   if(packet.spatial_context&&packet.spatial_context.resolution!=='unavailable'&&!packet.hit)reject('Spatial resolution requires actual hit');
   if(packet.spatial_context?.semantic_status&&packet.spatial_context.semantic_status.design_id!==packet.resource.design_id)reject('Spatial status design mismatch');
+  if(packet.relationships&&packet.relationships.subject_id!==packet.selection.primary_entity_id)reject('Relationship subject must be primary selection');
+  const relationship=packet.relationships;
+  if(relationship){
+    if(relationship.design_id!==packet.resource.design_id)reject('Relationship design mismatch');
+    if(relationship.status==='available'){
+      const model=relationship.sources.find(s=>s.resource_id===packet.source.resource_id);
+      if(!model||model.revision!==packet.source.revision||model.sha256!==packet.source.sha256)reject('Relationship model provenance mismatch');
+      const subject=relationship.nodes.find(n=>n.node_id===relationship.subject_id),entity=packet.entities.find(e=>e.global_id===relationship.subject_id);
+      if(!subject||!entity||subject.resource_id!==entity.source_resource_id||subject.native_id!==entity.native_object_id)reject('Relationship native/global entity mismatch');
+      const spaceNode=relationship.nodes.find(n=>n.node_id===relationship.primary_space_id);
+      if(relationship.primary_space_id&&(spaceNode?.space_id??spaceNode?.node_id)!==packet.spatial_context?.primary_space_id)reject('Relationship primary space differs from hit-resolved space');
+    }
+  }
   const spatial=packet.spatial_context;
   const blender=packet.resource.extensions?.['spatial_canvas.blender'] as {source_coordinate_frame?:string;meters_per_scene_unit?:number;source_up_axis?:string}|undefined;
   if(packet.hit?.source&&blender?.source_coordinate_frame){

@@ -21,6 +21,16 @@ from types import SimpleNamespace
 
 
 class BlenderGates(unittest.TestCase):
+    def test_relationship_evidence_export_is_read_only_and_hierarchy_is_not_connectivity(self):
+        from export_relationship_evidence import export_evidence
+        source=Path(self.source)
+        before=source.read_bytes();mtime=source.stat().st_mtime_ns
+        report=export_evidence(source, names=['Sofa','Wall'])
+        self.assertEqual({x['native_id'] for x in report['objects']},{'Sofa','Wall'})
+        self.assertTrue(all('world_aabb' in x and 'collections' in x for x in report['objects']))
+        self.assertEqual(report['physical_connections'],[])
+        self.assertEqual(source.read_bytes(),before);self.assertEqual(source.stat().st_mtime_ns,mtime)
+
     def setUp(self):
         bpy.ops.wm.read_factory_settings(use_empty=True)
         self.work = tempfile.TemporaryDirectory()

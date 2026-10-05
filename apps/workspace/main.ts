@@ -2,6 +2,7 @@ import './style.css';
 import { createIntent, reconcileSelection, select } from '../../packages/core/index';
 import { createContextPacket } from '../../packages/core/context';
 import {importSemantics} from '../../packages/core/semantic-import';
+import {importRelationships} from '../../packages/core/relationship-import';
 import type {LoadedSemantics} from '../../packages/core/spatial-context';
 import type { ContextHit } from '../../packages/protocol/context';
 import { manifestSchema, type Intent, type Manifest, type ProtocolEvent, type SelectionEvent } from '../../packages/protocol/index';
@@ -9,7 +10,7 @@ import { loadProxy, ProxyViewer, type LoadedProxy } from '../../packages/viewer/
 import { disposeScene, spatialMetadata } from '../../packages/viewer/scene';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header><div><h1>Spatial Canvas <small>V0.4</small></h1><p>Point to stable entities and independently defined spaces.</p></div>
+  <header><div><h1>Spatial Canvas <small>V0.5</small></h1><p>Point to entities, spaces and evidenced project relationships.</p></div>
     <div class="toolbar"><button id="example">Load full example</button><button id="task">Load task example</button>
     <label class="file-button">Open local export<input id="files" type="file" accept=".json,.glb" multiple></label>
     <button id="reload" disabled>Reload proxy</button></div></header>
@@ -21,6 +22,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Space / Region</h2><div id="semantic-readiness">BLOCKED_FOR_SPATIAL_CONTEXT</div><p id="space-result">Import space regions and project sources to resolve room context.</p>
       <label class="file-button">Import spatial semantics<input id="semantics-files" type="file" accept=".json" multiple></label>
       <button id="clear-semantics">Clear semantics</button><details><summary>Semantic diagnostics</summary><pre id="semantic-diagnostics">No spatial evidence loaded.</pre></details></section>
+    <section><h2>Relationships</h2><label class="file-button">Import relationship graph<input id="relationship-files" type="file" accept=".json"></label><button id="clear-relationships">Clear graph</button>
+      <p id="relationship-state">No relationship graph loaded</p><div id="relationship-list"></div><details><summary>Relationship readiness / gaps</summary><pre id="relationship-diagnostics"></pre></details></section>
     <section><h2>Entities <span id="count">0</span></h2><input id="search" type="search" placeholder="Search ID, native ID, or type" aria-label="Search entities"><div id="entities"></div></section>
     <section><h2>Inspector <span id="selected-count">0 selected</span></h2><pre id="inspector">Select an entity to inspect identity and world coordinates.</pre></section>
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
@@ -85,10 +88,21 @@ function renderSelection() {
 }
 function renderSemantics(){
   if(!manifest||!proxy||!lastSelection)return;
-  const spatial=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,semantics).spatial_context!;
+  const context=createContextPacket(manifest,lastSelection,proxy.entities,viewer.viewSnapshot(manifest.coordinate_frame),currentHit,semantics);
+  const spatial=context.spatial_context!;
   el('semantic-readiness').textContent=spatial.readiness;
   el('space-result').textContent=spatial.resolution+' · '+(spatial.containing_spaces.map(s=>s.name+' ['+s.space_id+'] ('+s.verification.state+')').join(', ')||'No containing space');
   el('semantic-diagnostics').textContent=spatial.diagnostics.length?spatial.diagnostics.join('\n\n'):'Verified region coverage for declared project domains. Boundary clicks may still be ambiguous.';
+  const relationships=context.relationships!;
+  el('relationship-state').textContent=relationships.status+' · '+relationships.edges.length+' relevant edges'+(relationships.truncated?' (truncated)':'');
+  el('relationship-list').replaceChildren();
+  const names=new Map(relationships.nodes.map(n=>[n.node_id,n.name??n.native_id??n.node_id]));
+  for(const edge of relationships.edges){
+    const row=document.createElement('p');row.className='relation '+edge.verification.state;
+    row.textContent='['+edge.verification.state+'] '+(names.get(edge.from)??edge.from)+' → '+edge.type+' → '+(edge.endpoints?edge.endpoints.map(id=>names.get(id)??id).join(' + '):names.get(edge.to)??edge.to);
+    row.title=edge.provenance.evidence;el('relationship-list').append(row);
+  }
+  el('relationship-diagnostics').textContent=relationships.diagnostics.join('\n')+'\n'+JSON.stringify(relationships.readiness,null,2);
 }
 function renderEntities() {
   const query = el<HTMLInputElement>('search').value.toLowerCase();
@@ -116,6 +130,8 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   const applicability=semantics.registry?.applies_to.find(s=>s.resource_id===manifest!.source_resource_id);
   if(semantics.registry&&(semantics.registry.design_id!==manifest.design_id||!applicability||applicability.revision!==manifest.source_revision||applicability.sha256!==manifest.source_sha256))semantics={};
   if(semantics.project&&semantics.project.design_id!==manifest.design_id)semantics={};
+  const graphSource=semantics.relationshipGraph?.sources.find(s=>s.resource_id===manifest!.source_resource_id);
+  if(semantics.relationshipGraph&&(semantics.relationshipGraph.design_id!==manifest.design_id||!graphSource||graphSource.revision!==manifest.source_revision||graphSource.sha256!==manifest.source_sha256)){delete semantics.relationshipGraph;delete semantics.relationshipArtifact;}
   latestIntent = undefined;
   currentHit=null;
   el<HTMLButtonElement>('download-intent').disabled = true;
@@ -180,6 +196,15 @@ el<HTMLInputElement>('semantics-files').addEventListener('change',async event=>{
   }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
 el('clear-semantics').addEventListener('click',()=>{semanticsGeneration++;semantics={};renderSemantics();status('Spatial evidence cleared; room context now requires supplementation.');});
+el<HTMLInputElement>('relationship-files').addEventListener('change',async event=>{
+  const input=event.target as HTMLInputElement,files=[...input.files??[]];input.value='';const generation=++semanticsGeneration;
+  try{
+    const result=await importRelationships(await Promise.all(files.map(async file=>({name:file.name,bytes:new Uint8Array(await file.arrayBuffer())}))));
+    if(generation!==semanticsGeneration)return;
+    semantics={...semantics,relationshipGraph:result.graph,relationshipArtifact:result.artifact};renderSemantics();status('Relationship evidence imported. Typed edges and capability gaps are available in ContextPacket.');
+  }catch(error){if(generation===semanticsGeneration){delete semantics.relationshipGraph;delete semantics.relationshipArtifact;renderSemantics();status(error instanceof Error?error.message:String(error),true);}}
+});
+el('clear-relationships').addEventListener('click',()=>{semanticsGeneration++;delete semantics.relationshipGraph;delete semantics.relationshipArtifact;renderSemantics();status('Relationship graph cleared. Connections require evidence.');});
 el('clear').addEventListener('click', () => choose(null, false, 'list'));
 el('frame').addEventListener('click', () => viewer.frame(selected));
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') choose(null, false, 'keyboard'); });

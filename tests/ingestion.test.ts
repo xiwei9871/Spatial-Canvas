@@ -2,6 +2,8 @@ import {expect,it} from 'vitest';
 import {ingestProject} from '../packages/core/ingestion';
 import {projectSchema,spaceRegistrySchema} from '../packages/protocol/spaces';
 import {spaces,project} from './space-data';
+import {graph as graphFixture} from './relationship-data';
+import {relationshipGraphSchema} from '../packages/protocol/relationships';
 
 it('reports READY for complete verified regions and BLOCKED for geometry-only projects',()=>{
   const p=projectSchema.parse(project()),r=spaceRegistrySchema.parse(spaces());
@@ -9,6 +11,13 @@ it('reports READY for complete verified regions and BLOCKED for geometry-only pr
   const missing=ingestProject(p);expect(missing.status).toBe('BLOCKED_FOR_SPATIAL_CONTEXT');
   expect(missing.diagnostics.some(d=>d.code==='missing_regions'&&d.action.includes('import'))).toBe(true);
 });
+it('blocks relationship readiness for graph schema/design/shared source mismatch independently of rooms',()=>{
+ const p=projectSchema.parse(project()),r=spaceRegistrySchema.parse(spaces());const graph=relationshipGraphSchema.parse(graphFixture);
+ graph.requirements=[{capability:'component_hierarchy',node_id:'bottom',types:['part_of']}];
+ const status=ingestProject(p,r,graph);expect(status.status).toBe('READY');expect(status.relationship_status?.component_hierarchy.status).toBe('BLOCKED');
+ graph.design_id=p.design_id;expect(ingestProject(p,r,graph).relationship_status?.component_hierarchy.status).toBe('BLOCKED');
+});
+it('blocks nonexistent transition endpoints at project ingestion even when hashes/design agree',()=>{const p=projectSchema.parse(project()),r=spaceRegistrySchema.parse(spaces()),g=relationshipGraphSchema.parse(graphFixture);g.design_id=p.design_id;g.sources[0]!.revision='r4';g.sources.push({resource_id:r.registry_id,revision:r.registry_revision,sha256:'c'.repeat(64)});for(const e of g.edges)e.provenance.source_revision='r4';for(const n of g.nodes)if(n.kind==='space'){n.resource_id=r.registry_id;n.space_id='NONEXISTENT_'+n.node_id;}g.requirements=[{capability:'transition_graph',node_id:'door',types:['transition_between']}];expect(ingestProject(p,r,g).relationship_status?.transition_graph.status).toBe('BLOCKED');});
 it('reports PARTIAL for unapproved CAD candidates and incomplete levels',()=>{
   const p=projectSchema.parse(project()),r=spaceRegistrySchema.parse(spaces());
   r.spaces[0]!.verification={state:'candidate'};

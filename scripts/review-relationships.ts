@@ -1,0 +1,13 @@
+import {parseArgs} from 'node:util';
+import {readFile,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {relationshipGraphSchema} from '../packages/protocol/relationships';
+import {parseJsonBytes} from '../packages/core/semantic-import';
+import {reviewRelationship} from '../packages/core/relationship-review';
+const {values:v}=parseArgs({options:{graph:{type:'string'},edge:{type:'string'},state:{type:'string'},reviewer:{type:'string'},note:{type:'string'},revision:{type:'string'},output:{type:'string'}}});
+if(!v.graph||!v.edge||!v.reviewer||!v.note||!v.revision||!v.output||!['verified','rejected'].includes(v.state??''))throw new Error('Required: --graph PATH --edge ID --state verified|rejected --reviewer NAME --note EVIDENCE --revision NEW --output NEW.json');
+const g=relationshipGraphSchema.parse(parseJsonBytes(await readFile(v.graph)));
+const output=resolve(v.output);if([v.graph,...g.sources.flatMap(s=>s.locator?[s.locator]:[])].some(s=>resolve(s)===output))throw new Error('Output aliases source/input');
+const next=reviewRelationship(g,v.edge,v.state as 'verified'|'rejected',{reviewer:v.reviewer,note:v.note,timestamp:new Date().toISOString()},v.revision);
+await writeFile(output,JSON.stringify(next,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({graph_id:next.graph_id,revision:next.revision,reviewed_edge:v.edge,output}));

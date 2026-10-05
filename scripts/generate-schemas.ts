@@ -3,9 +3,11 @@ import { z } from 'zod';
 import { entitySchema, executionResultSchema, frameSchema, intentSchema, manifestSchema, resourceSchema, selectionSchema } from '../packages/protocol/index';
 import { bindingRegistrySchema, cameraViewSchema, contextPacketSchema, sourceFrameSchema } from '../packages/protocol/context';
 import {spaceRegistrySchema,projectSchema,semanticStatusSchema,spatialContextSchema} from '../packages/protocol/spaces';
+import {relationshipGraphSchema,relationshipStatusSchema} from '../packages/protocol/relationships';
+import {relationshipContextSchema} from '../packages/protocol/relationship-context';
 
 await mkdir('schemas', { recursive: true });
-for (const [name, schema] of Object.entries({ resource: resourceSchema, entity: entitySchema, frame: frameSchema, manifest: manifestSchema, selection: selectionSchema, intent: intentSchema, 'execution-result': executionResultSchema, bindings:bindingRegistrySchema, context:contextPacketSchema, 'camera-view':cameraViewSchema, 'source-frame':sourceFrameSchema,spaces:spaceRegistrySchema,project:projectSchema,'semantic-status':semanticStatusSchema,'spatial-context':spatialContextSchema })) {
+for (const [name, schema] of Object.entries({ resource: resourceSchema, entity: entitySchema, frame: frameSchema, manifest: manifestSchema, selection: selectionSchema, intent: intentSchema, 'execution-result': executionResultSchema, bindings:bindingRegistrySchema, context:contextPacketSchema, 'camera-view':cameraViewSchema, 'source-frame':sourceFrameSchema,spaces:spaceRegistrySchema,project:projectSchema,'semantic-status':semanticStatusSchema,'spatial-context':spatialContextSchema,relationships:relationshipGraphSchema,'relationship-status':relationshipStatusSchema,'relationship-context':relationshipContextSchema })) {
   const json = z.toJSONSchema(schema, { target: 'draft-7', io: 'input' });
   // JSON Schema cannot infer Zod refinements. Encode the same portable constraints explicitly.
   if (name === 'selection') {
@@ -33,4 +35,4 @@ for (const [name, schema] of Object.entries({ resource: resourceSchema, entity: 
   json.$id = `urn:spatial-canvas:${name}:v1`;
   await writeFile(`schemas/${name}.schema.json`, JSON.stringify(json, null, 2) + '\n');
 }
-console.log('Generated 15 protocol JSON schemas; geometry, identity/provenance relations are additionally checked at runtime.');
+console.log('Generated 18 protocol JSON schemas; geometry, graph integrity and identity/provenance relations are additionally checked at runtime.');

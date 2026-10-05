@@ -7,6 +7,9 @@ import {registry,packet} from './context-data';
 import {spaces,project} from './space-data';
 import {projectSchema,spaceRegistrySchema} from '../packages/protocol/spaces';
 import {ingestProject} from '../packages/core/ingestion';
+import {graph as relationshipGraph} from './relationship-data';
+import {relationshipGraphSchema} from '../packages/protocol/relationships';
+import {relationshipStatus} from '../packages/core/relationship-status';
 
 it('validates portable JSON Schema contracts and their rejection cases', async () => {
   const ajv = new Ajv({ strict: false });
@@ -23,6 +26,13 @@ it('validates portable JSON Schema contracts and their rejection cases', async (
     }
     if (name === 'manifest') expect(validate({ ...manifest, proxy_uri: '../unsafe.glb' })).toBe(false);
   }
+});
+it('validates portable graph and capability status shapes',async()=>{
+ const ajv=new Ajv({strict:false});addFormats(ajv);
+ for(const [name,value] of Object.entries({relationships:relationshipGraph,'relationship-status':relationshipStatus(relationshipGraphSchema.parse(relationshipGraph))})){
+  const validate=ajv.compile(JSON.parse(await readFile('schemas/'+name+'.schema.json','utf8')));
+  expect(validate(value),JSON.stringify(validate.errors)).toBe(true);expect(validate({...value,schema:'unsupported'})).toBe(false);
+ }
 });
 it('validates portable region/project/readiness contracts',async()=>{
   const ajv=new Ajv({strict:false});addFormats(ajv);

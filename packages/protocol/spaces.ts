@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { frameSchema } from './index';
 import {validPolygon} from './regions';
+import {relationshipStatusSchema} from './relationships';
 
 const id=z.string().min(1);
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
@@ -47,6 +48,7 @@ export const projectSchema=z.object({
   if(p.levels.some(l=>l.coverage.coordinate_frame!==p.frame.coordinate_frame||l.coverage.unit!==p.frame.unit))ctx.addIssue({code:'custom',message:'Level coverage frame mismatch'});
 });
 export const semanticStatusSchema=z.object({
+  relationship_status:relationshipStatusSchema.optional(),
   schema:z.literal('spatial-canvas.semantic-status.v1'),project_id:id,design_id:id,status:z.enum(['READY','PARTIAL','BLOCKED_FOR_SPATIAL_CONTEXT']),
   sources:z.array(sourceSchema),known_levels:z.array(id),coverage:z.object({covered_levels:z.array(id),uncovered_levels:z.array(id),uncovered_volume:z.number().nonnegative()}),
   diagnostics:z.array(z.object({code:id,message:id,action:id})),registry_id:id.nullable(),registry_revision:id.nullable(),

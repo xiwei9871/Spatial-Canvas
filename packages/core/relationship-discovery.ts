@@ -1,0 +1,16 @@
+import {relationshipGraphSchema,type RelationshipGraph,type RelationshipNode,type RelationshipEdge} from '../protocol/relationships';
+import {contactCandidates} from './relationship-candidates';
+type Source={resource_id:string;revision:string;sha256:string;frame?:{coordinate_frame:string;unit:'meter';up_axis:'X'|'Y'|'Z'}};
+type ObjectEvidence={node_id:string;native_id:string;groups:string[];bounds:[[number,number,number],[number,number,number]]};
+type Evidence={graph?:unknown;objects?:ObjectEvidence[]};
+export function discoverRelationships(designId:string,source:Source,evidence:Evidence[]):{graph:RelationshipGraph;method:'explicit'|'hierarchy_and_geometry'}{
+ for(const e of evidence)if(e.graph){const graph=relationshipGraphSchema.parse(e.graph);const matching=graph.sources.find(s=>s.resource_id===source.resource_id);if(graph.design_id!==designId||!matching||matching.revision!==source.revision||matching.sha256!==source.sha256)throw new Error('Explicit graph design/source mismatch');return {graph,method:'explicit'};}
+ const objects=evidence.flatMap(e=>e.objects??[]),nodes:RelationshipNode[]=[],edges:RelationshipEdge[]=[];
+ if(!source.frame)throw new Error('Normalized hierarchy/geometry evidence needs an explicit meter frame and up axis.');
+ if(!objects.length)throw new Error('No mapped node evidence. Supply global/native IDs and normalized source inventory; functional relationships cannot be guessed.');
+ for(const obj of objects){nodes.push({node_id:obj.node_id,kind:'entity',resource_id:source.resource_id,native_id:obj.native_id});for(const group of obj.groups){if(!nodes.some(n=>n.node_id===group))nodes.push({node_id:group,kind:'component_group',resource_id:source.resource_id,name:group});edges.push({edge_id:'membership_'+obj.node_id+'_'+group,from:obj.node_id,to:group,type:'part_of',verification:{state:'candidate'},provenance:{method:'derived_from_source_hierarchy',source_resource_id:source.resource_id,source_revision:source.revision,source_sha256:source.sha256,evidence:'Normalized native parent/group membership; semantic assembly role requires review and never implies physical connection.'}});}}
+ edges.push(...contactCandidates(objects.map(o=>({node_id:o.node_id,bounds:o.bounds})),{...source,frame_id:source.frame.coordinate_frame,unit:source.frame.unit,tolerance:1e-6}));
+ const graph=relationshipGraphSchema.parse({schema:'spatial-canvas.relationships.v1',design_id:designId,graph_id:'relationships_'+designId,revision:'candidate-1',sources:[source],nodes,edges,
+  gaps:[{capability:'component_hierarchy',message:objects.some(o=>o.groups.length)?'Assembly hierarchy candidates need review.':'No assembly/group hierarchy supplied.',action:'Import explicit native groups/assembly register or author and review membership.'},{capability:'physical_connectivity',message:'AABB contact candidates do not establish functional connectivity.',action:'Supply explicit connection register or review actual contact evidence.'},{capability:'space_adjacency',message:'No reviewed space boundary relationships supplied.',action:'Import Space Registry and shared-boundary evidence.'},{capability:'transition_graph',message:'No complete opening/vertical transition endpoints supplied.',action:'Provide both spaces/levels and review transition evidence.'}]});
+ return {graph,method:'hierarchy_and_geometry'};
+}
