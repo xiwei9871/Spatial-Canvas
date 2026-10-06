@@ -4,6 +4,20 @@ import { indexScene, spatialMetadata } from '../packages/viewer/scene';
 import { entity, manifest } from './data';
 
 describe('rendered scene identity and world coordinates', () => {
+  it('retains independent wall identities under a shared renderer group and material', () => {
+    const root=new Group(),walls=new Group(),geometry=new BoxGeometry(2,2,.2),material=new MeshStandardMaterial();
+    const left=new Mesh(geometry,material),right=new Mesh(geometry,material);
+    left.userData={...entity,global_id:'ent_wall_left',native_object_id:'WallLeft',semantic_type:'wall'};
+    right.userData={...entity,global_id:'ent_wall_right',native_object_id:'WallRight',semantic_type:'wall'};
+    walls.add(left,right);root.add(walls);
+    const indexed=indexScene(root,{...manifest,entity_count:2});
+    expect(indexed.meshEntities.get(left)?.global_id).toBe('ent_wall_left');
+    expect(indexed.meshEntities.get(right)?.global_id).toBe('ent_wall_right');
+    expect(indexed.objects.get('ent_wall_left')).toBe(left);
+    expect(indexed.objects.get('ent_wall_right')).toBe(right);
+    expect(indexed.entities.size).toBe(2);
+    geometry.dispose();material.dispose();
+  });
   it('indexes through semantic ancestors and exposes evaluated world bounds', () => {
     const root = new Group();
     const semantic = new Group();

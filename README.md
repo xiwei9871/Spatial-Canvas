@@ -1,87 +1,109 @@
 # Spatial Canvas
 
-Spatial Canvas is a local-first interaction layer that lets humans and AI point to, select, annotate, and operate on entities across 3D, CAD, images, web pages, and other project artifacts without making the interaction representation authoritative.
+Spatial Canvas 是本地项目上下文工作台：你在模型里点选真实对象，把稳定身份、源文件版本、点击位置、空间语义和有证据的关系交给 AI。它让设计协作从“你说的是哪一个？”开始，变成从明确的对象和上下文开始。
 
-V0.1 implements the 3D selection → stable identity → machine-readable request loop in [Issue #1](https://github.com/xiwei9871/Spatial-Canvas/issues/1). V0.2 adds the offline Blender producer/adapter loop in [Issue #3](https://github.com/xiwei9871/Spatial-Canvas/issues/3): a persistent .blend source can export a proxy, receive a validated request-only intent, bump revision after an authoritative transform, and re-export. Annotation, live sync and additional viewers remain future work.
+当前工作台显示 **V0.5.1**，项目处于 **Stable / Maintenance**。浏览器加载的是 derived Interaction Proxy，权威源仍在 Blender、CAD 等原工具中。网页选择、Frame、Hide/Ghost 和相机书签都不修改权威源；AI 修改任务需要你的明确指令。
+
+## 当前生产工作流
+
+1. 用 **Open local export** 同时选择 `interaction_proxy.manifest.json` 和它引用的 `.glb`。
+2. 需要房间上下文时，用 **Import spatial semantics** 导入匹配的 project 和 Space Registry。
+3. 需要组件、连接或相邻关系时，用 **Import relationship graph** 导入匹配的图。
+4. 在模型上点击对象；在 **Inspector** 核对 `global_id`、`native_object_id` 和 source revision。
+5. 必要时 **Frame selection**，让镜头围绕选中对象取景。
+6. 选中遮挡视线的独立墙段，用 **Hide selected** 或 **Ghost selected**；用 **Show all** 恢复。
+7. 拖动调整视角。需要精确比较机位时，使用已有的 **Lock view / Save View**。
+8. 点 **Copy AI Handoff**，把上下文连同具体设计任务粘贴给 Codex 或其他 AI。
+9. 精确机位任务另附 **Copy View Handoff**，或导出的相机 JSON 和 PNG 预览。
+10. AI 按源版本和对象定位执行明确授权的任务；源有变化后，重新导出并 **Reload proxy**，再次核对。
+
+完整操作和可选步骤见 [WORKFLOW](docs/WORKFLOW.md)，逐项按钮说明见 [USER_GUIDE](docs/USER_GUIDE.md)。
+
+## 核心能力
+
+| 能力 | 实际含义 |
+| --- | --- |
+| 对象身份 | 稳定/global ID、原生对象 ID、design/source resource |
+| 来源追踪 | source locator、revision、SHA-256；冻结源使用外部 bindings |
+| 精确点击 | Pointer raycast hit、坐标系和单位；列表选择没有点击位置 |
+| 空间语义 | 独立 Space Registry 根据点击点解析区域；不把 `room_id` 当作区域边界 |
+| 关系语义 | 有来源的 `part_of`、直接连接、嵌入、相邻和过渡，保留审核状态 |
+| 查看与取景 | Frame、独立对象 Hide/Ghost、Show all、Isolate；只影响 viewer |
+| AI 交接 | ContextPacket 和 Copy AI Handoff；不自动连接或调用 AI 服务 |
+| 精确机位 | 已有相机书签、数值 View Handoff、JSON/PNG 导出和只读 Blender 应用 |
+| 项目接入 | 模板、CLI 预检查、readiness 与补充资料清单 |
+
+**Inspector** 回答“这是什么对象”；**Space / Region** 回答“这个点击点在哪个区域”；**Relationships** 回答“它与其他对象/空间/组件是什么关系”。一项已知，并不让其他两项自动成立。
 
 ## Quick start
 
-Requires Node.js 22 or newer and a browser with WebGL2.
+需要 Node.js 22+ 和支持 WebGL2 的浏览器：
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite (normally http://127.0.0.1:5173). Click **Load full example**. Click a box in the viewport to see its stable ID and metadata. Shift/Ctrl/⌘ click another box or entity row to multi-select. Click **Emit transform intent** to inspect the exact request JSON. The geometry does not move. **Download event log** exports the last 100 validated events.
+打开 Vite 打印的本地地址。**Load full example** 可试完整演示，**Load task example** 可试局部子集；它们不是你的真实工程。
 
-Choose exactly one `*.manifest.json` and its referenced GLB together with **Open local export**, or drop both into the viewport. Local manifests never trigger a network fetch. **Reload proxy** refetches built-in fixtures; for local files it asks for the new export pair because browser File objects do not automatically track disk changes. No restart is needed. Invalid imports retain the previous scene. Task and full proxies use identical contracts; overlapping IDs retain selection within the same design.
+真实项目需加载 manifest 和对应 GLB。加载不会读取 `.blend`。本地 **Reload proxy** 会重新要求选择导出文件，不会监听文件变化。无效 Proxy 导入保留上一有效场景。
 
-## Architecture
+## 项目接入
 
-```text
-authoritative tool/source → offline producer → derived GLB + manifest
-                                               ↓
-                                      local browser workspace
-                                               ↓
-                                      selection / intent JSON
-                                               ↓
-                                future adapter validates and acts
+```sh
+npm run project:init -- --dir /path/to/new-project
+npm run project:inspect -- --dir /path/to/new-project
+npm run project:validate -- --dir /path/to/new-project
 ```
 
-| Path | Responsibility |
+初始化会生成模板，拒绝覆盖非空目录。替换 placeholder IDs、源 locator、revision、完整 SHA、单位和坐标系，再做真实导出和工作台验证。CLI 的文件预检查不是完整空间/关系验收；详见 [PROJECT_ONBOARDING](docs/PROJECT_ONBOARDING.md)。
+
+## Interaction Proxy 原则
+
+### Interaction Boundary Preservation
+
+**权威源中有独立交互意义的对象，Proxy 应保留这些边界；只有经过明确设计的语义合并才能改变粒度。**
+
+C-Type 曾把原 Blender 墙体输入的交互意义压缩到两个连续墙壳：点击一面墙后 Hide/Ghost 影响整屋墙体，AI 也丢失局部墙段身份。修复后有 **98 个独立墙面实体 + 919 个保留 ID 的其他实体 = 1017**。这不是每个 Blender Mesh 都必须一对一导出的规定。
+
+语义合并仅适用于选择意义不丢失、ID/原生来源可追溯、当前工作流不需要独立操作的部分。整屋墙壳不满足单墙遮挡控制的需求。冻结源的修复在独立 derived review 中进行，不写入冻结 `.blend`。
+
+规范与检查清单：[INTERACTION_PROXY](docs/INTERACTION_PROXY.md)。本地 C-Type 修复的可复现案例：[wall identity recipe](examples/c-type-wall-identity/README.md)；验收记录：[maintenance validation](docs/maintenance/issue13-validation.md)。
+
+## 架构与维护
+
+`authoritative source → offline producer → derived GLB/manifest → Workspace → source-linked handoff`。
+
+| 目录 | 责任 |
 | --- | --- |
-| `packages/protocol` | Contracts, container checks, stable identity validation; no renderer dependency |
-| `schemas` | JSON Schema draft-07 contracts for non-TypeScript producers |
-| `packages/core` | Selection transitions, reload reconciliation, revision-bound requests |
-| `packages/viewer` | Three.js loading, raycast mapping, bounds, highlight and controls |
-| `apps/workspace` | Local import, inspector, request form, event output |
-| `adapters/blender` | Offline Blender producer/adapter and atomic source execution; no live bridge |
-| `examples/living` | Original synthetic source and reproducible full/task fixtures |
-
-Read [Protocol V0.1](docs/protocol-v0.1.md) before building producers/consumers. Source tool coordinates are separate from glTF meter/Y-up coordinates. Requests refer to the proxy world frame; adapters own conversion.
-
-## Validation
+| `packages/protocol`, `schemas` | 协议、容器和身份/来源约束 |
+| `packages/core` | 选择、上下文、语义解析、关系和 handoff |
+| `packages/viewer`, `apps/workspace` | 加载、点选、查看状态、Inspector 和输出 |
+| `adapters/blender` | 离线导出、受校验的 intent 执行、已有相机预设应用 |
+| `templates/project` | 可复用 onboarding 模板 |
 
 ```sh
 npm run check
+npm run test:adapter
+npm run test:bindings
+npm run test:camera
+npm run test:wall
+npm run schemas
+npm run fixture
 ```
 
-Runs lint, typecheck, Vitest, and build. `npm run schemas` regenerates contracts; `npm run fixture` regenerates fixtures. Tests cover manifest/version/revision validity, missing/duplicate IDs, ancestry, containers, selection, immutable/stale targets, world coordinates and portable schemas. CI also checks reproducible outputs.
+`check` 包含 lint、typecheck、Vitest、build。真实 Blender 和本地 C-Type 验收命令见 [maintenance validation](docs/maintenance/issue13-validation.md)。工作文件、模型、Proxy、截图和日志留在本地/产物存储；只有小型 authored fixtures 在 `examples/living/task-output` 中受版本控制。
 
-## V0.1 scope and boundaries
+维护仅处理真实工作流暴露的问题、兼容性和小型可用性缺口。本轮不增加相机系统、语义域、关系词汇、实时同步、自动渲染、云服务或 AI provider SDK；见 [MAINTENANCE](docs/MAINTENANCE.md)。
 
-Orbit/pan/zoom, pointer selection, multi-selection, highlight, search, frame selection, world matrix/bounds inspector, local paired-file import, reload, and translation intent generation. Every selectable mesh resolves through node extras or its closest identified ancestor. Names never provide identity. Browser actions neither write source files nor export an edited GLB. `mutable` is a source policy hint, not permission granted by the UI.
+## 协议与历史
 
-Blender live WebSocket bridge, bidirectional sync, collaboration, cloud storage/auth, databases, UE/FreeCAD integrations, AI provider SDKs, accurate materials, and large-file streaming are outside V0.1. Proxies must be self-contained, have one active scene, and have no textures/glTF extensions. Future versions may expand this profile.
-
-With Blender 5.2.1 installed, run npm run blender:e2e for the V0.2 gate. See [the workflow](docs/blender-workflow-v0.2.md) and [real acceptance evidence](docs/validation-v0.2.md). It creates a temporary .blend, exports a full proxy, applies a +0.50m proxy-world X intent through adapters/blender/apply_intent.py, verifies rev-00001 -> rev-00002, rejects stale replay and immutable wall targets, then re-exports and validates stable IDs. See docs/blender-workflow-v0.2.md.
-
-## Artifact policy
-
-Working `task-output/`, `artifacts/`, `.blend`, and `.glb` exports are ignored. Keep large sources and working exports local or in an artifact store. Small authored fixtures under `examples/living/task-output` are allowlisted; see [provenance](examples/living/README.md).
-
-The browser verifies manifest/node consistency, not authoritative source contents, which it does not load. An adapter must verify revision/SHA-256 against its actual source before acting and apply its own authority policy.
-
-## V0.3 frozen sources and context
-
-Frozen sources use an external binding registry and are never annotated or saved by the producer. See [Protocol V0.3](docs/protocol-v0.3.md), [frozen workflow](docs/frozen-workflow-v0.3.md) and [real R4 validation](docs/validation-v0.3.md). Editable sources retain in-source IDs. The Workspace exports a ContextPacket with stable selection, source locator/revision/SHA, entity metadata, current camera/viewport and a real pointer hit (or null).
-
-## V0.4 spaces and project ingestion
-
-Entities identify physical objects; spaces identify independently sourced regions. A continuous floor can resolve to different spaces at different hit points. Use **Import spatial semantics** to choose Space Registry and project descriptor JSON. The Workspace computes `READY`, `PARTIAL` or `BLOCKED_FOR_SPATIAL_CONTEXT`, exposes missing evidence/review/coverage diagnostics and includes the actual spatial result in copied/exported ContextPackets. No room context is inferred from an entity's name or `room_id`.
-
-See [V0.4 protocol and ingestion workflow](docs/protocol-v0.4.md) and [real acceptance evidence](docs/validation-v0.4.md). Native source inventory is read-only; unsupported IFC/FreeCAD representations require normalized boundary exports. No BIM authoring or general room-reconstruction suite is implemented.
-
-## V0.5 relationships
-
-Use **Import relationship graph** to load typed, evidenced membership, direct connections, embedding, adjacency and transitions. The Relationships inspector and ContextPacket preserve original relation ownership and verified/candidate/rejected state. Component membership never implies physical connection; missing plumbing or transition evidence produces a gap. Capability readiness is separate from spatial readiness.
-
-See [V0.5 protocol/workflows](docs/protocol-v0.5.md), [real sink/door/stair/wall validation](docs/validation-v0.5.md) and the generic fixture in examples/relationships. Graphs are external and frozen sources remain unchanged.
-
-
-## Current stable scope
-
-V0.1 selection · V0.2 authority loop · V0.3 frozen source + ContextPacket · V0.4 space semantics · V0.5 relationship semantics · V0.5.1 release hardening and onboarding. See [USER_GUIDE.md](docs/USER_GUIDE.md) and [PROJECT_ONBOARDING.md](docs/PROJECT_ONBOARDING.md).
-
-The project enters Stable / Maintenance when the V0.5.1 closeout merges. Concrete bug, compatibility and small usability fixes remain allowed; speculative V0.6 feature work is outside maintenance.
+| 阶段 | 文档 |
+| --- | --- |
+| V0.1 身份、选择、请求 | [Protocol](docs/protocol-v0.1.md) |
+| V0.2 离线 Blender 闭环 | [Workflow](docs/blender-workflow-v0.2.md) |
+| V0.3 冻结源、bindings、ContextPacket | [Protocol](docs/protocol-v0.3.md) / [Workflow](docs/frozen-workflow-v0.3.md) |
+| V0.4 空间语义与 ingestion | [Protocol](docs/protocol-v0.4.md) |
+| V0.5 typed relationships | [Protocol](docs/protocol-v0.5.md) |
+| V0.5.1 使用与接入冻结 | [USER_GUIDE](docs/USER_GUIDE.md) / [Onboarding](docs/PROJECT_ONBOARDING.md) |
+| 已有 maintenance 机位交接 | [View Handoff](docs/view-handoff.md) |

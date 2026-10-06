@@ -19,6 +19,8 @@ jobs:
           python-version: '3.11'
       - run: npm run test:adapter
       - run: npm run test:bindings
+      - run: npm run test:camera
+      - run: npm run test:wall
       - run: npm run check
       - run: npm run schemas
       - run: npm run fixture
