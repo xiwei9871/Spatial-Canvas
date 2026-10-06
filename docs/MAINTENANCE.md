@@ -1,10 +1,14 @@
-# Stable / Maintenance
+# Finalized / Stable / Maintenance
 
-V0.5.1 closeout merged as PR #12 (`3b9a666`). Spatial Canvas now has a stable production scope: source-linked object identity, selection/hit, frozen-sidecar ContextPacket, independent Space Semantics, typed relationship context, controlled import failure, onboarding and AI handoff.
+V0.5.1 closeout merged as PR #12 (`3b9a666`), and production-workflow/native-wall maintenance merged as PR #14 (`ad47ce40f98d295cf3dd8ed7f5a2333381591238`). Spatial Canvas now has a stable production scope: source-linked object identity, selection/hit, frozen-sidecar ContextPacket, independent Space Semantics, typed relationship context, controlled import failure, onboarding and AI handoff.
 
-Maintenance permits concrete bugs, compatibility/security fixes and small usability gaps exposed by real engineering/design work. Native wall interaction boundaries and the already implemented View Handoff are such gaps. [WORKFLOW](WORKFLOW.md) and [USER_GUIDE](USER_GUIDE.md) describe their current UI; [INTERACTION_PROXY](INTERACTION_PROXY.md) fixes the boundary principle.
+Spatial Canvas is functionally complete for the current product goal. Future changes are driven only by concrete production workflow blockers, bugs, compatibility issues or small usability improvements. Maintenance permits bug/security fixes, compatibility fixes, source-adapter corrections, performance fixes required by actual use, small usability improvements and documentation corrections. Native wall interaction boundaries and the already implemented View Handoff are such gaps. [WORKFLOW](WORKFLOW.md) and [USER_GUIDE](USER_GUIDE.md) describe their current UI; [INTERACTION_PROXY](INTERACTION_PROXY.md) fixes the boundary principle.
 
-Issue #13 packages documentation, source-only wall recipe/regression evidence and the existing maintenance UI into a reviewable Spatial Canvas branch. At this documentation freeze, main is still V0.5.1 closeout; maintenance features described as present on this branch become released only after the maintenance PR merges. No automatic merge is performed.
+Issue #13 is complete and its maintenance UI, production docs and source-only wall recipe are merged into main through PR #14. Issue #15 is the final planned closeout: final status wording, release notes and validation only. No automatic merge is performed.
+
+The release candidate is [v0.5.1-stable](releases/v0.5.1-stable.md). Its final tag/release is pending user merge of the finalization PR. Only that PR’s actual merge commit is the tag target, not PR #14’s baseline or the finalization branch head.
+
+There is no speculative V0.6 roadmap. Reject V0.6 for its own sake, WebSocket architecture, cloud/collaboration platforms, graph databases/visualization, automatic BIM/room/plumbing/electrical authoring, AI-provider orchestration, prompt-management platforms and plugin marketplaces. Live synchronization may be reconsidered only in a separately authorized task if an actual blocker proves it necessary; it is not current maintenance scope.
 
 This task adds no new camera system, Blender camera export, real-time bridge, WebSocket/live synchronization, AI provider SDK, cloud service, graph visualization, semantic domain/vocabulary, relationship type, automatic render pipeline, room reconstruction or C-Type design change.
 

@@ -2,7 +2,9 @@
 
 Spatial Canvas 是本地项目上下文工作台：你在模型里点选真实对象，把稳定身份、源文件版本、点击位置、空间语义和有证据的关系交给 AI。它让设计协作从“你说的是哪一个？”开始，变成从明确的对象和上下文开始。
 
-当前工作台显示 **V0.5.1**，项目处于 **Stable / Maintenance**。浏览器加载的是 derived Interaction Proxy，权威源仍在 Blender、CAD 等原工具中。网页选择、Frame、Hide/Ghost 和相机书签都不修改权威源；AI 修改任务需要你的明确指令。
+当前工作台显示 **V0.5.1**，项目最终状态为 **Finalized / Stable / Maintenance**。浏览器加载的是 derived Interaction Proxy，权威源仍在 Blender、CAD 等原工具中。网页选择、Frame、Hide/Ghost 和相机书签都不修改权威源；AI 修改任务需要你的明确指令。
+
+发布候选：[`v0.5.1-stable`](docs/releases/v0.5.1-stable.md)。当前产品目标已具备完整功能；后续仅由真实工作流阻塞、bug、兼容性或小型可用性问题驱动。Tag 和正式 release 要在 finalization PR 由用户合并后，指向该 PR 的实际 merge commit；本分支不提前创建 tag。
 
 ## 当前生产工作流
 
