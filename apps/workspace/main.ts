@@ -3,7 +3,7 @@ import { createIntent, reconcileSelection, select } from '../../packages/core/in
 import { createContextPacket } from '../../packages/core/context';
 import {importSemantics} from '../../packages/core/semantic-import';
 import {SemanticState} from '../../packages/core/semantic-state';
-import {buildAiHandoff,copyWithFallback,ContextSnapshot} from '../../packages/core/handoff';
+import {buildAiHandoff,copyWithFallback,ContextSnapshot,contextExportFilename,handoffExportFilename,handoffTitle} from '../../packages/core/handoff';
 import {importRelationships} from '../../packages/core/relationship-import';
 import type {LoadedSemantics} from '../../packages/core/spatial-context';
 import type { ContextHit } from '../../packages/protocol/context';
@@ -33,7 +33,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section><h2>Transform intent</h2><p>Translation delta in proxy world coordinates (meters). Generates a request for an adapter.</p>
       <form id="intent-form"><div class="translation"><label>X<input id="tx" type="number" step="any" value="0.2" required></label><label>Y<input id="ty" type="number" step="any" value="0" required></label><label>Z<input id="tz" type="number" step="any" value="0" required></label></div><button id="request" disabled>Emit transform intent</button></form></section>
   </aside></main>
-  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="copy-handoff" disabled>Copy AI Handoff</button> <input id="view-name" aria-label="View name" value="entrance_compare_01" maxlength="64"><button id="save-view" disabled>Save View</button><button id="restore-view" disabled>Restore saved view</button><label class="file-button">Import Camera Preset<input id="preset-file" type="file" accept=".json"></label> <button id="copy-view-handoff" disabled>Copy View Handoff</button> <button id="export-view" disabled>Export Camera Preset</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><div id="view-downloads"></div><pre id="handoff-fallback" hidden aria-label="AI handoff fallback"></pre><button id="copy-handoff-fallback" hidden>Copy handoff text</button><pre id="event-json" aria-live="polite">[]</pre></section>`;
+  <section class="events"><div class="events-heading"><h2>Emitted protocol JSON <span id="event-count">0 events</span></h2><div><button id="copy-context" disabled>Copy ContextPacket</button> <button id="copy-handoff" disabled>Copy AI Handoff</button> <button id="export-handoff" disabled>Export AI Handoff</button> <input id="view-name" aria-label="View name" value="entrance_compare_01" maxlength="64"><button id="save-view" disabled>Save View</button><button id="restore-view" disabled>Restore saved view</button><label class="file-button">Import Camera Preset<input id="preset-file" type="file" accept=".json"></label> <button id="copy-view-handoff" disabled>Copy View Handoff</button> <button id="export-view" disabled>Export Camera Preset</button> <button id="download-context" disabled>Export ContextPacket</button> <button id="download-intent" disabled>Download intent</button> <button id="download" disabled>Download event log</button></div></div><div id="view-downloads"></div><div id="handoff-downloads"></div><pre id="handoff-fallback" hidden aria-label="AI handoff fallback"></pre><button id="copy-handoff-fallback" hidden>Copy handoff text</button><pre id="event-json" aria-live="polite">[]</pre></section>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (message: string, error = false) => { el('status').textContent = message; el('status').classList.toggle('error', error); };
@@ -51,6 +51,17 @@ let semanticsGeneration=0;
 const semanticState=new SemanticState();
 const contextSnapshot=new ContextSnapshot();
 let currentHandoff='';
+const contextDownloads=new Map<string,{url:string;link:HTMLAnchorElement}>();
+function clearContextDownloads(){for(const item of contextDownloads.values())URL.revokeObjectURL(item.url);contextDownloads.clear();el('handoff-downloads').replaceChildren();}
+function offerContextDownload(kind:'context'|'handoff',text:string,filename:string,mime:string){
+  const previous=contextDownloads.get(kind);
+  if(previous){URL.revokeObjectURL(previous.url);previous.link.remove();}
+  const url=URL.createObjectURL(new Blob([text],{type:mime}));
+  const link=document.createElement('a');link.href=url;link.download=filename;link.textContent=filename;
+  link.style.display='block';link.style.overflowWrap='anywhere';
+  el('handoff-downloads').append(link);contextDownloads.set(kind,{url,link});link.click();
+}
+
 let currentViewPreset:ViewPreset|undefined;
 let hiddenEntityIds:string[]=[];
 let ghostEntityIds:string[]=[];
@@ -152,7 +163,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   if(semantics.project&&semantics.project.design_id!==manifest.design_id)semantics={};
   const graphSource=semantics.relationshipGraph?.sources.find(s=>s.resource_id===manifest!.source_resource_id);
   if(semantics.relationshipGraph&&(semantics.relationshipGraph.design_id!==manifest.design_id||!graphSource||graphSource.revision!==manifest.source_revision||graphSource.sha256!==manifest.source_sha256)){delete semantics.relationshipGraph;delete semantics.relationshipArtifact;}
-  currentViewPreset=undefined;savedPreview='';el('view-downloads').replaceChildren();hiddenEntityIds=[];ghostEntityIds=[];
+  currentViewPreset=undefined;savedPreview='';el('view-downloads').replaceChildren();clearContextDownloads();hiddenEntityIds=[];ghostEntityIds=[];
   for(const id of ['copy-view-handoff','export-view','restore-view'])el<HTMLButtonElement>(id).disabled=true;
   el<HTMLButtonElement>('save-view').disabled=false;el<HTMLButtonElement>('lock-view').disabled=false;el('lock-view').textContent='Lock view';
   latestIntent = undefined;
@@ -162,7 +173,7 @@ async function install(manifestData: unknown, buffer: ArrayBuffer, generation: n
   el('resource').textContent = [manifest.resource_id, manifest.scope, 'derived', manifest.source_revision].join(' · ');
   el('count').textContent = String(manifest.entity_count);
   el<HTMLButtonElement>('reload').disabled = false;
-  el<HTMLButtonElement>('download-context').disabled=false;
+  el<HTMLButtonElement>('download-context').disabled=false;el<HTMLButtonElement>('export-handoff').disabled=false;
   el<HTMLButtonElement>('copy-context').disabled=false;
   try{const stored=localStorage.getItem(savedViewKey());if(stored){const value=viewPresetSchema.parse(JSON.parse(stored));currentViewPreset=value;el<HTMLInputElement>('view-name').value=value.preset_id;el<HTMLButtonElement>('restore-view').disabled=false;}}catch{/* Invalid bookmarks are never applied. */}
   applySelection(event);
@@ -289,23 +300,28 @@ el('copy-context').addEventListener('click',async()=>{
 });
 el('copy-handoff').addEventListener('click',async()=>{
   if(!manifest||!proxy)return;
-  currentHandoff=buildAiHandoff(currentContext());
+  const packet=currentContext();
+  currentHandoff=buildAiHandoff(packet);
   const result=await copyWithFallback(currentHandoff,text=>navigator.clipboard.writeText(text));
-  if(result.copied){el<HTMLPreElement>('handoff-fallback').hidden=true;el<HTMLButtonElement>('copy-handoff-fallback').hidden=true;status('AI Handoff copied. Paste it into your AI assistant.');activity('AI Handoff copied.');return;}
+  if(result.copied){el<HTMLPreElement>('handoff-fallback').hidden=true;el<HTMLButtonElement>('copy-handoff-fallback').hidden=true;status('AI Handoff copied: '+handoffTitle(packet));activity('AI Handoff copied: '+handoffTitle(packet));return;}
   const fallback=el<HTMLPreElement>('handoff-fallback');fallback.textContent=result.fallback;fallback.hidden=false;el<HTMLButtonElement>('copy-handoff-fallback').hidden=false;fallback.tabIndex=0;fallback.focus();
   status('Clipboard unavailable. AI Handoff is displayed below for manual selection. '+result.error,true);activity('Clipboard denied; fallback text is ready below.');
 });
 el('copy-handoff-fallback').addEventListener('click',async()=>{const text=el('handoff-fallback').textContent??'';const result=await copyWithFallback(text,value=>navigator.clipboard.writeText(value));if(result.copied){status('AI Handoff copied.');el<HTMLButtonElement>('copy-handoff-fallback').hidden=true;}else status('Clipboard still unavailable; use the displayed handoff text.',true);});
+el('export-handoff').addEventListener('click',()=>{
+  if(!manifest||!proxy||!lastSelection)return;
+  try{
+    const packet=currentContext(),filename=handoffExportFilename(packet);
+    offerContextDownload('handoff',buildAiHandoff(packet),filename,'text/plain;charset=utf-8');
+    status('AI Handoff ready: '+filename+'. If the download did not start, click its filename below.');
+  }catch(error){status(error instanceof Error?error.message:String(error),true);}
+});
 el('download-context').addEventListener('click',()=>{
   if(!manifest||!proxy||!lastSelection)return;
   try{
     const packet=currentContext();
-    const url=URL.createObjectURL(new Blob([JSON.stringify(packet,null,2)],{type:'application/json'}));
-    const link=document.createElement('a');
-    link.href=url;link.download='spatial-canvas.context.json';
-    document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),30000);
-    status('ContextPacket generated; download requested. If no file appears, use Copy ContextPacket.');
+    offerContextDownload('context',JSON.stringify(packet,null,2),contextExportFilename(packet),'application/json');
+    status('ContextPacket ready: '+contextExportFilename(packet)+'. If the download did not start, click its filename below.');
   }catch(error){status(error instanceof Error?error.message:String(error),true);}
 });
 el('viewer').addEventListener('dragover', (event) => event.preventDefault());
@@ -313,7 +329,7 @@ el('viewer').addEventListener('drop', (event) => {
   event.preventDefault(); const files = [...(event as DragEvent).dataTransfer?.files ?? []];
   if (files.length) void loadFiles(files);
 });
-if (import.meta.hot) import.meta.hot.dispose(() => viewer.dispose());
+if (import.meta.hot) import.meta.hot.dispose(() => {clearContextDownloads();viewer.dispose();});
 
 function restorePreset(value:unknown){
  const preset=viewPresetSchema.parse(value);

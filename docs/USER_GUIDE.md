@@ -81,8 +81,11 @@ Pointer 选择才提供真实点击点。点击 Entity 列表会清除 hit，不
 | 控件 | 做什么 / 什么时候用 | 边界 |
 | --- | --- | --- |
 | **Copy ContextPacket** | 复制结构化 JSON：selection、来源/版本/SHA、实体、当前 camera、hit、空间与关系状态 | 不自动发送给 AI；不含临时 Hide/Ghost ID 列表，不是编辑授权 |
-| **Copy AI Handoff** | 复制 ContextPacket 加“按包工作、保留未知状态”等提示，直接交给 AI | 不执行 agent、Blender 或设计修改；具体任务另由你说明 |
-| **Export ContextPacket** | 请求下载相同上下文 JSON，用于留档/文件交接 | 下载受浏览器行为影响；没有文件时可 Copy ContextPacket |
+| **Copy AI Handoff** | 首行以选中对象名称、稳定 ID、版本标识交接内容，再附 ContextPacket 和使用说明；多选注明主对象及数量 | 粘贴后的附件底层文件名由接收应用决定；具体设计任务另由你说明 |
+| **Export AI Handoff** | 下载带对象名、稳定 ID、版本和时间的文本文件，内容与 Copy AI Handoff 相同 | 需要明确文件名时使用；不执行 agent 或设计修改 |
+| **Export ContextPacket** | 下载相同上下文 JSON，文件名包含对象名、稳定 ID、版本和时间；未选对象时使用源资源名 | 下载受浏览器行为影响；没有文件时可 Copy ContextPacket |
+
+导出后页面会保留对应文件名的链接；自动下载没有开始时可以点击它。链接表示生成时的固定快照，多次导出会替换该类型的上一个链接，换 Proxy 后清空。中文对象名会保留，路径符号和过长名称会安全处理。JSON 协议内容不因显示标题或文件名变化而改变。
 | **Copy handoff text** | Clipboard denied 时显示的备用复制控件；也可手动复制可见 fallback 文本 | 只在 fallback 场景出现，不是另一种 AI 功能 |
 | **Emit transform intent** | 用 X/Y/Z 输入生成 proxy-world 米单位平移请求 | request-only；网页不移动模型；选到 immutable 实体时禁用 |
 | **Download intent** | 在 intent 生成后下载该请求 | 不执行请求；adapter 仍需授权/版本/hash/native ID/mutable 校验 |
